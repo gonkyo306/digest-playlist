@@ -1,6 +1,8 @@
 // フェーズ3：メドレー一覧画面（起動後の最初の画面、FR-2.8）
 // メドレーの新規作成・名前変更・削除の導線もここに置く（FR-2.1, FR-2.2, FR-2.3）。
 
+import { showConfirm, showPrompt } from './dialog.js';
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -45,19 +47,27 @@ export function renderMedleyList(container, medleys, actions) {
     btn.addEventListener('click', () => actions.onOpen(btn.dataset.id));
   });
   container.querySelectorAll('.medley-rename').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const medley = medleys.find((m) => m.id === btn.dataset.id);
-      const newName = prompt('新しい名前を入力してください', medley ? medley.name : '');
-      if (newName && newName.trim()) actions.onRename(btn.dataset.id, newName.trim());
+      const newName = await showPrompt({
+        title: '名前を変更',
+        defaultValue: medley ? medley.name : '',
+        confirmLabel: '変更する',
+      });
+      if (newName !== null && newName.trim()) actions.onRename(btn.dataset.id, newName.trim());
     });
   });
   container.querySelectorAll('.medley-delete').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const medley = medleys.find((m) => m.id === btn.dataset.id);
       const label = medley ? `「${medley.name}」` : 'このメドレー';
-      if (confirm(`${label}を削除しますか？この操作は取り消せません。`)) {
-        actions.onDelete(btn.dataset.id);
-      }
+      const ok = await showConfirm({
+        title: 'メドレーを削除',
+        message: `${label}を削除しますか？この操作は取り消せません。`,
+        confirmLabel: '削除する',
+        danger: true,
+      });
+      if (ok) actions.onDelete(btn.dataset.id);
     });
   });
 }

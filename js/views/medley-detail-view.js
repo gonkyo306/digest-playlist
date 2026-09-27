@@ -1,5 +1,8 @@
 // フェーズ3：メドレー詳細画面（曲一覧の表示、「曲を追加」導線。FR-2.9, FR-2.4, FR-2.5）
 // フェーズ4：メドレー本編の再生パネルもここに追加（FR-4.5〜4.15, FR-4.11）
+// フェーズ5：通信エラー時の表示（NFR-2.3）を追加
+
+import { showConfirm } from './dialog.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -7,19 +10,21 @@ function escapeHtml(str) {
 
 /**
  * @param {HTMLElement} container
- * @param {{medley: object, tracks: Array<object>, unavailableIds: Array}} data
+ * @param {{medley: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string}} data
  * @param {{onBack, onAddTrack, onRemoveTrack, onStartPlayback, onTogglePlayPause, onNext, onPrev}} actions
  */
-export function renderMedleyDetail(container, { medley, tracks, unavailableIds }, actions) {
+export function renderMedleyDetail(container, { medley, tracks, unavailableIds, fetchError }, actions) {
   const canPlay = tracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
 
   container.innerHTML = `
     <button id="back-btn" class="link-btn">← 一覧へ戻る</button>
     <h1>${escapeHtml(medley.name)}</h1>
-    <p class="note">
-      ${medley.trackIds.length}曲
-      ${unavailableIds.length ? `（うち${unavailableIds.length}曲は取得できませんでした）` : ''}
-    </p>
+    ${fetchError
+      ? `<p class="error-banner">通信エラー：曲情報を取得できませんでした（${escapeHtml(fetchError)}）。電波の良い場所で再度お試しください。</p>`
+      : `<p class="note">
+          ${medley.trackIds.length}曲
+          ${unavailableIds.length ? `（うち${unavailableIds.length}曲は取得できませんでした）` : ''}
+        </p>`}
 
     ${canPlay ? `
       <section id="playback-panel">
@@ -61,10 +66,14 @@ export function renderMedleyDetail(container, { medley, tracks, unavailableIds }
 
   container.querySelectorAll('.track-item').forEach((li, i) => {
     const track = tracks[i];
-    li.querySelector('.track-remove').addEventListener('click', () => {
-      if (confirm(`「${track.title}」をメドレーから削除しますか？`)) {
-        actions.onRemoveTrack(track.id);
-      }
+    li.querySelector('.track-remove').addEventListener('click', async () => {
+      const ok = await showConfirm({
+        title: '曲を削除',
+        message: `「${track.title}」をメドレーから削除しますか？`,
+        confirmLabel: '削除する',
+        danger: true,
+      });
+      if (ok) actions.onRemoveTrack(track.id);
     });
   });
 

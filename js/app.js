@@ -98,16 +98,24 @@ async function showDetail(medleyId) {
     showList();
     return;
   }
-  const { available, unavailableIds } = medley.trackIds.length
-    ? await fetchTrackInfoByIds(medley.trackIds)
-    : { available: [], unavailableIds: [] };
+  // 通信エラー時も操作不能にならないよう、失敗してもアプリ全体は止めない（NFR-2.3）
+  let available = [];
+  let unavailableIds = [];
+  let fetchError = null;
+  if (medley.trackIds.length) {
+    try {
+      ({ available, unavailableIds } = await fetchTrackInfoByIds(medley.trackIds));
+    } catch (err) {
+      fetchError = err.message || String(err);
+    }
+  }
 
   // 別のメドレーを再生中だった場合は、そちらを止める
   if (currentPlayerMedleyId && currentPlayerMedleyId !== medleyId) {
     disposeCurrentPlayer();
   }
 
-  renderMedleyDetail(app, { medley, tracks: available, unavailableIds }, {
+  renderMedleyDetail(app, { medley, tracks: available, unavailableIds, fetchError }, {
     onBack: () => showList(),
     onAddTrack: () => showSearch(medleyId),
     onRemoveTrack: async (trackId) => {
