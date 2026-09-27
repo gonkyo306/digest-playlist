@@ -57,7 +57,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
         <div class="item-main">
           <div class="item-name">${escapeHtml(t.title)}</div>
-          <div class="item-sub">${escapeHtml(t.artist)}</div>
+          <div class="item-sub">${escapeHtml(t.artist)}${t.album ? ` / ${escapeHtml(t.album)}` : ''}</div>
         </div>
         <button class="icon-btn preview-btn" data-index="${i}">試聴</button>
         <button class="icon-btn add-btn" data-index="${i}" ${dupFlags[i] ? 'disabled' : ''}>
