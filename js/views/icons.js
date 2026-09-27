@@ -11,14 +11,26 @@ const ICONS = {
   remove: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   cart: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM17 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.2 15h9.6c.75 0 1.41-.41 1.75-1.03L21.7 6H6.2l-.94-2H2v2h2l3.6 7.6-1.35 2.45C5.52 16.37 6.48 17 7.2 15z"/></svg>',
   shuffle: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M14.83 13.41L13.42 14.82L16.55 17.95L14.5 20H20V14.5L17.96 16.54L14.83 13.41M14.5 4L16.54 6.04L4 18.59L5.41 20L17.96 7.46L20 9.5V4M10.59 9.17L5.41 4L4 5.41L9.17 10.58L10.59 9.17Z"/></svg>',
+  back: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>',
 };
 
 /**
- * アイコン＋テキストラベルのHTMLを組み立てる。ボタンのinnerHTMLとして使う。
+ * アイコン＋テキストラベルのHTMLを組み立てる。ボタンのinnerHTMLとして使う（主に再生・一時停止・
+ * 前へ・次へ等、メインの再生操作に使う。CR-011以降、追加/試聴/削除/戻る等はiconOnlyを使う）。
  * @param {keyof typeof ICONS} name
  * @param {string} label ボタンに併記するテキストラベル
  */
 export function iconLabel(name, label) {
   const svg = ICONS[name] || '';
   return `<span class="icon-label">${svg}<span class="icon-label-text">${label}</span></span>`;
+}
+
+/**
+ * アイコンのみのHTMLを組み立てる（テキストラベルなし。FR-5.3/CR-011）。
+ * 呼び出し側で、ボタン要素自体にaria-label属性を付けてアクセシビリティを担保すること。
+ * @param {keyof typeof ICONS} name
+ */
+export function iconOnly(name) {
+  return `<span class="icon-only">${ICONS[name] || ''}</span>`;
 }

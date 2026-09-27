@@ -1,12 +1,13 @@
-// フェーズ3：メドレー詳細画面（曲一覧の表示。FR-2.9, FR-2.5）
-// フェーズ4：メドレー本編の再生パネルもここに追加（FR-4.5〜4.15, FR-4.11）
+// フェーズ3：プレイリスト詳細画面（曲一覧の表示。FR-2.9, FR-2.5）
+// フェーズ4：プレイリスト本編の再生パネルもここに追加（FR-4.5〜4.15, FR-4.11）
 // フェーズ5：通信エラー時の表示（NFR-2.3）を追加
 // フェーズ7：「＋曲を追加」導線は廃止（検索タブから追加する。FR-2.4）
 // フェーズ11：曲一覧はアーティスト名順で表示（FR-2.11）。操作ボタンはアイコン表示（FR-5.3）
+// CR-011：削除・戻るボタンはアイコンのみ（テキストラベルなし）に変更
 
 import { showConfirm } from './dialog.js';
-import { sortTracksByArtist } from '../medley-sort.js';
-import { iconLabel } from './icons.js';
+import { sortTracksByArtist } from '../playlist-sort.js';
+import { iconLabel, iconOnly } from './icons.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -14,21 +15,21 @@ function escapeHtml(str) {
 
 /**
  * @param {HTMLElement} container
- * @param {{medley: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string}} data
+ * @param {{playlist: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string}} data
  * @param {{onBack, onRemoveTrack, onStartPlayback, onTogglePlayPause, onNext, onPrev}} actions
  */
-export function renderMedleyDetail(container, { medley, tracks: rawTracks, unavailableIds, fetchError }, actions) {
+export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, unavailableIds, fetchError }, actions) {
   const canPlay = rawTracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
   // 表示順のみアーティスト名順に並び替える（FR-2.11）。再生順（順序はtrackIds/rawTracks側）には影響しない。
   const tracks = sortTracksByArtist(rawTracks);
 
   container.innerHTML = `
-    <button id="back-btn" class="link-btn">← 一覧へ戻る</button>
-    <h1>${escapeHtml(medley.name)}</h1>
+    <button id="back-btn" class="icon-btn" aria-label="一覧へ戻る">${iconOnly('back')}</button>
+    <h1>${escapeHtml(playlist.name)}</h1>
     ${fetchError
       ? `<p class="error-banner">通信エラー：曲情報を取得できませんでした（${escapeHtml(fetchError)}）。電波の良い場所で再度お試しください。</p>`
       : `<p class="note">
-          ${medley.trackIds.length}曲
+          ${playlist.trackIds.length}曲
           ${unavailableIds.length ? `（うち${unavailableIds.length}曲は取得できませんでした）` : ''}
         </p>`}
 
@@ -50,10 +51,9 @@ export function renderMedleyDetail(container, { medley, tracks: rawTracks, unava
       </section>
     ` : ''}
 
-    <p class="note">曲の追加は「検索」タブから行えます。</p>
     <ul class="list">
       ${tracks.length === 0
-        ? '<li class="empty">曲がまだ追加されていません。「検索」タブから追加してください。</li>'
+        ? '<li class="empty">曲がまだ追加されていません。</li>'
         : tracks.map((t) => `
           <li class="list-item track-item">
             <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
@@ -61,7 +61,7 @@ export function renderMedleyDetail(container, { medley, tracks: rawTracks, unava
               <div class="item-name">${escapeHtml(t.title)}</div>
               <div class="item-sub">${escapeHtml(t.artist)}</div>
             </div>
-            <button class="icon-btn danger track-remove" title="削除">${iconLabel('remove', '削除')}</button>
+            <button class="icon-btn danger track-remove" aria-label="削除">${iconOnly('remove')}</button>
           </li>
         `).join('')}
     </ul>
@@ -74,7 +74,7 @@ export function renderMedleyDetail(container, { medley, tracks: rawTracks, unava
     li.querySelector('.track-remove').addEventListener('click', async () => {
       const ok = await showConfirm({
         title: '曲を削除',
-        message: `「${track.title}」をメドレーから削除しますか？`,
+        message: `「${track.title}」をプレイリストから削除しますか？`,
         confirmLabel: '削除する',
         danger: true,
       });
@@ -103,7 +103,7 @@ export function renderMedleyDetail(container, { medley, tracks: rawTracks, unava
 /**
  * 再生パネルだけを更新する（曲が切り替わるたびに画面全体を再描画すると、
  * 通信のやり直し・ちらつきが発生するため、パネル部分のみDOMを更新する）。
- * @param {HTMLElement} container renderMedleyDetailを呼んだのと同じcontainer
+ * @param {HTMLElement} container renderPlaylistDetailを呼んだのと同じcontainer
  * @param {{track: object|null, playing: boolean, canGoBack: boolean, stopped: boolean}} state
  */
 export function updatePlaybackPanel(container, state) {

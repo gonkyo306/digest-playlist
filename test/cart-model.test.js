@@ -5,7 +5,7 @@ import {
   removeFromCart,
   removeManyFromCart,
   isInCart,
-  partitionCartForMedley,
+  partitionCartForPlaylist,
 } from '../js/cart-model.js';
 
 test('addToCart: 曲IDを追加できる (FR-1.12)', () => {
@@ -39,16 +39,16 @@ test('isInCart: 曲IDがカートに入っているかを判定できる', () =>
   assert.equal(isInCart(['t1', 't2'], 't3'), false);
 });
 
-test('partitionCartForMedley: メドレーに未追加の曲と追加済みの曲を分けられる (FR-1.13, FR-2.6)', () => {
-  const medley = { trackIds: ['t2', 't4'] };
-  const { toAdd, alreadyInMedley } = partitionCartForMedley(['t1', 't2', 't3', 't4'], medley);
+test('partitionCartForPlaylist: プレイリストに未追加の曲と追加済みの曲を分けられる (FR-1.13, FR-2.6)', () => {
+  const playlist = { trackIds: ['t2', 't4'] };
+  const { toAdd, alreadyInPlaylist } = partitionCartForPlaylist(['t1', 't2', 't3', 't4'], playlist);
   assert.deepEqual(toAdd, ['t1', 't3']);
-  assert.deepEqual(alreadyInMedley, ['t2', 't4']);
+  assert.deepEqual(alreadyInPlaylist, ['t2', 't4']);
 });
 
-test('partitionCartForMedley: 全曲未追加なら、すべてtoAddに入る', () => {
-  const medley = { trackIds: [] };
-  const { toAdd, alreadyInMedley } = partitionCartForMedley(['t1', 't2'], medley);
+test('partitionCartForPlaylist: 全曲未追加なら、すべてtoAddに入る', () => {
+  const playlist = { trackIds: [] };
+  const { toAdd, alreadyInPlaylist } = partitionCartForPlaylist(['t1', 't2'], playlist);
   assert.deepEqual(toAdd, ['t1', 't2']);
-  assert.deepEqual(alreadyInMedley, []);
+  assert.deepEqual(alreadyInPlaylist, []);
 });

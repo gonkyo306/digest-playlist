@@ -1,13 +1,13 @@
 // アプリ本体のエントリポイント。
-// フェーズ7〜11：「メドレー」「検索」の2タブ構成（FR-6.1）、再生の永続化・ミニプレイヤー
+// フェーズ7〜11：「プレイリスト」「検索」の2タブ構成（FR-6.1）、再生の永続化・ミニプレイヤー
 // （FR-4.16, FR-4.17）、検索の拡張（FR-1.1, 1.8〜1.13）、アーティスト順ソート（FR-2.11）を統合する。
 
-import { getAllMedleys, getMedley, saveMedley, deleteMedley } from './storage.js';
+import { getAllPlaylists, getPlaylist, savePlaylist, deletePlaylist } from './storage.js';
 import {
-  createMedley,
-  renameMedley,
-  addTrackToMedley,
-  removeTrackFromMedley,
+  createPlaylist,
+  renamePlaylist,
+  addTrackToPlaylist,
+  removeTrackFromPlaylist,
   isDuplicateTrack,
 } from './models.js';
 import { fetchTrackInfoByIds } from './track-api.js';
@@ -19,17 +19,17 @@ import {
   removeFromCart as removeFromCartModel,
   removeManyFromCart,
   isInCart as isInCartModel,
-  partitionCartForMedley,
+  partitionCartForPlaylist,
 } from './cart-model.js';
 import { loadCart, persistCart } from './cart-storage.js';
 import { PreviewPlayer } from './preview-player.js';
-import { MedleyPlayer } from './medley-player.js';
-import { renderMedleyList } from './views/medley-list-view.js';
-import { renderMedleyDetail, updatePlaybackPanel } from './views/medley-detail-view.js';
+import { PlaylistPlayer } from './playlist-player.js';
+import { renderPlaylistList } from './views/playlist-list-view.js';
+import { renderPlaylistDetail, updatePlaybackPanel } from './views/playlist-detail-view.js';
 import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
-import { showMedleyPicker } from './views/medley-picker-dialog.js';
+import { showPlaylistPicker } from './views/playlist-picker-dialog.js';
 import { showMessage } from './views/dialog.js';
 
 const mainContent = document.getElementById('main-content');
@@ -37,8 +37,8 @@ const tabBarEl = document.getElementById('tab-bar');
 const miniPlayerEl = document.getElementById('mini-player');
 
 const realPreviewPlayer = new PreviewPlayer();
-// FR-1.6: 試聴が始まったら、再生中のメドレー／アルバム一時再生を一時停止する。
-// （検索がメドレーから独立したので、「試聴の開始」そのものをフックする）
+// FR-1.6: 試聴が始まったら、再生中のプレイリスト／アルバム一時再生を一時停止する。
+// （検索がプレイリストから独立したので、「試聴の開始」そのものをフックする）
 const previewPlayer = {
   get isPlaying() {
     return realPreviewPlayer.isPlaying;
@@ -56,13 +56,13 @@ const previewPlayer = {
 };
 
 // --- 画面全体のタブ状態（FR-6.1） ---
-let activeTab = 'medley'; // 'medley' | 'search'
-let medleyView = { screen: 'list' }; // { screen: 'list' } | { screen: 'detail', medleyId }
+let activeTab = 'playlist'; // 'playlist' | 'search'
+let playlistView = { screen: 'list' }; // { screen: 'list' } | { screen: 'detail', playlistId }
 
 // --- 再生の永続化（FR-4.16）：画面遷移では破棄しない。新しい再生を始めるときだけ入れ替える ---
-/** @type {MedleyPlayer|null} */
+/** @type {PlaylistPlayer|null} */
 let currentPlayer = null;
-/** @type {{type: 'medley', medleyId: string}|{type: 'album', albumName: string}|null} */
+/** @type {{type: 'playlist', playlistId: string}|{type: 'album', albumName: string}|null} */
 let playbackContext = null;
 
 // --- カート（FR-1.12）：起動時にローカルストレージから読み込む（NFR-3.4） ---
@@ -95,25 +95,25 @@ function updateMediaSessionMetadata(track) {
 window.addEventListener('offline', () => currentPlayer && currentPlayer.handleOffline());
 window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnline());
 
-/** 今、メドレー詳細画面またはアルバム一時再生の「再生元」を見ているか（＝インライン表示で足りるか） */
+/** 今、プレイリスト詳細画面またはアルバム一時再生の「再生元」を見ているか（＝インライン表示で足りるか） */
 function isViewingCurrentPlayback() {
   if (!currentPlayer || !playbackContext) return false;
-  if (playbackContext.type === 'medley') {
-    return activeTab === 'medley'
-      && medleyView.screen === 'detail'
-      && medleyView.medleyId === playbackContext.medleyId;
+  if (playbackContext.type === 'playlist') {
+    return activeTab === 'playlist'
+      && playlistView.screen === 'detail'
+      && playlistView.playlistId === playbackContext.playlistId;
   }
   // アルバムの一時再生（FR-1.11）：検索タブを表示していれば、再生元相当とみなす
   return activeTab === 'search';
 }
 
-/** メドレー詳細画面のインラインパネル、またはミニプレイヤーへ、再生状態を反映する */
+/** プレイリスト詳細画面のインラインパネル、またはミニプレイヤーへ、再生状態を反映する */
 function reflectPlaybackState() {
   if (!currentPlayer) {
     renderMiniPlayerBar();
     return;
   }
-  if (playbackContext?.type === 'medley' && isViewingCurrentPlayback()) {
+  if (playbackContext?.type === 'playlist' && isViewingCurrentPlayback()) {
     updatePlaybackPanel(mainContent, {
       track: currentPlayer.currentTrack(),
       playing: currentPlayer.playing,
@@ -140,9 +140,9 @@ function renderMiniPlayerBar() {
       },
       onNext: () => currentPlayer.next(),
       onTap: () => {
-        if (playbackContext.type === 'medley') {
-          activeTab = 'medley';
-          medleyView = { screen: 'detail', medleyId: playbackContext.medleyId };
+        if (playbackContext.type === 'playlist') {
+          activeTab = 'playlist';
+          playlistView = { screen: 'detail', playlistId: playbackContext.playlistId };
         } else {
           activeTab = 'search';
         }
@@ -162,90 +162,90 @@ function renderTabBarUi() {
 
 function renderMain() {
   renderTabBarUi();
-  if (activeTab === 'medley') {
-    if (medleyView.screen === 'detail') showMedleyDetail(medleyView.medleyId);
-    else showMedleyList();
+  if (activeTab === 'playlist') {
+    if (playlistView.screen === 'detail') showPlaylistDetail(playlistView.playlistId);
+    else showPlaylistList();
   } else {
     showSearchTab();
   }
   renderMiniPlayerBar();
 }
 
-// --- メドレータブ ---
+// --- プレイリストタブ ---
 
-async function showMedleyList() {
+async function showPlaylistList() {
   previewPlayer.stop();
-  medleyView = { screen: 'list' };
-  const medleys = await getAllMedleys();
-  medleys.sort((a, b) => b.updatedAt - a.updatedAt);
-  renderMedleyList(mainContent, medleys, {
+  playlistView = { screen: 'list' };
+  const playlists = await getAllPlaylists();
+  playlists.sort((a, b) => b.updatedAt - a.updatedAt);
+  renderPlaylistList(mainContent, playlists, {
     onOpen: (id) => {
-      medleyView = { screen: 'detail', medleyId: id };
+      playlistView = { screen: 'detail', playlistId: id };
       renderMain();
     },
     onCreate: async (name) => {
-      await saveMedley(createMedley(name));
-      showMedleyList();
+      await savePlaylist(createPlaylist(name));
+      showPlaylistList();
     },
     onRename: async (id, newName) => {
-      const medley = await getMedley(id);
-      if (!medley) return showMedleyList();
-      await saveMedley(renameMedley(medley, newName));
-      showMedleyList();
+      const playlist = await getPlaylist(id);
+      if (!playlist) return showPlaylistList();
+      await savePlaylist(renamePlaylist(playlist, newName));
+      showPlaylistList();
     },
     onDelete: async (id) => {
-      if (playbackContext?.type === 'medley' && playbackContext.medleyId === id) disposeCurrentPlayer();
-      await deleteMedley(id);
-      showMedleyList();
+      if (playbackContext?.type === 'playlist' && playbackContext.playlistId === id) disposeCurrentPlayer();
+      await deletePlaylist(id);
+      showPlaylistList();
     },
   });
 }
 
-async function showMedleyDetail(medleyId) {
+async function showPlaylistDetail(playlistId) {
   previewPlayer.stop();
-  medleyView = { screen: 'detail', medleyId };
-  const medley = await getMedley(medleyId);
-  if (!medley) {
-    medleyView = { screen: 'list' };
-    return showMedleyList();
+  playlistView = { screen: 'detail', playlistId };
+  const playlist = await getPlaylist(playlistId);
+  if (!playlist) {
+    playlistView = { screen: 'list' };
+    return showPlaylistList();
   }
 
   let available = [];
   let unavailableIds = [];
   let fetchError = null;
-  if (medley.trackIds.length) {
+  if (playlist.trackIds.length) {
     try {
-      ({ available, unavailableIds } = await fetchTrackInfoByIds(medley.trackIds));
+      ({ available, unavailableIds } = await fetchTrackInfoByIds(playlist.trackIds));
     } catch (err) {
       fetchError = err.message || String(err);
     }
   }
 
-  renderMedleyDetail(mainContent, { medley, tracks: available, unavailableIds, fetchError }, {
+  renderPlaylistDetail(mainContent, { playlist, tracks: available, unavailableIds, fetchError }, {
     onBack: () => {
-      medleyView = { screen: 'list' };
+      playlistView = { screen: 'list' };
       renderMain();
     },
     onRemoveTrack: async (trackId) => {
-      const updated = removeTrackFromMedley(medley, trackId);
-      await saveMedley(updated);
-      if (playbackContext?.type === 'medley' && playbackContext.medleyId === medleyId) disposeCurrentPlayer();
-      showMedleyDetail(medleyId);
+      const updated = removeTrackFromPlaylist(playlist, trackId);
+      await savePlaylist(updated);
+      if (playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) disposeCurrentPlayer();
+      showPlaylistDetail(playlistId);
     },
-    onStartPlayback: () => startMedleyPlayback(medleyId, available),
+    onStartPlayback: () => startPlaylistPlayback(playlistId, available),
     onTogglePlayPause: () => currentPlayer && currentPlayer.togglePlayPause(),
     onNext: () => currentPlayer && currentPlayer.next(),
     onPrev: () => currentPlayer && currentPlayer.prev(),
   });
 
-  if (playbackContext?.type === 'medley' && playbackContext.medleyId === medleyId && currentPlayer) {
+  if (playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId && currentPlayer) {
     reflectPlaybackState();
   }
 }
 
-function startMedleyPlayback(medleyId, tracks) {
+function startPlaylistPlayback(playlistId, tracks) {
   disposeCurrentPlayer();
-  currentPlayer = new MedleyPlayer(tracks, {
+  currentPlayer = new PlaylistPlayer(tracks, {
     onTrackChange: (track) => {
       updateMediaSessionMetadata(track);
       reflectPlaybackState();
@@ -253,7 +253,7 @@ function startMedleyPlayback(medleyId, tracks) {
     onPlayStateChange: () => reflectPlaybackState(),
     onFailureStop: () => reflectPlaybackState(),
   });
-  playbackContext = { type: 'medley', medleyId };
+  playbackContext = { type: 'playlist', playlistId };
   currentPlayer.start();
 }
 
@@ -263,7 +263,7 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
   previewPlayer.stop();
   disposeCurrentPlayer();
   const ordered = orderAlbumTracks(tracks, shuffle);
-  currentPlayer = new MedleyPlayer(ordered, {
+  currentPlayer = new PlaylistPlayer(ordered, {
     onTrackChange: (track) => {
       updateMediaSessionMetadata(track);
       reflectPlaybackState();
@@ -288,52 +288,52 @@ async function resolveCartTracks() {
   }
 }
 
-/** 検索結果1曲を、選んだメドレーへ単体で追加する（FR-2.4） */
+/** 検索結果1曲を、選んだプレイリストへ単体で追加する（FR-2.4） */
 async function handleAddSingleTrack(track) {
-  const medleys = await getAllMedleys();
-  const targetId = await showMedleyPicker(medleys);
+  const playlists = await getAllPlaylists();
+  const targetId = await showPlaylistPicker(playlists);
   if (!targetId) return;
-  const medley = await getMedley(targetId);
-  if (!medley) return;
+  const playlist = await getPlaylist(targetId);
+  if (!playlist) return;
 
-  if (isDuplicateTrack(medley, track.id)) {
-    await showMessage({ title: '追加済み', message: `「${track.title}」は、すでに「${medley.name}」に追加されています。` });
+  if (isDuplicateTrack(playlist, track.id)) {
+    await showMessage({ title: '追加済み', message: `「${track.title}」は、すでに「${playlist.name}」に追加されています。` });
     return;
   }
-  const { medley: updated } = addTrackToMedley(medley, track.id);
-  await saveMedley(updated);
-  await showMessage({ title: '追加しました', message: `「${track.title}」を「${medley.name}」に追加しました。` });
-  if (activeTab === 'medley' && medleyView.screen === 'detail' && medleyView.medleyId === targetId) {
-    showMedleyDetail(targetId);
+  const { playlist: updated } = addTrackToPlaylist(playlist, track.id);
+  await savePlaylist(updated);
+  await showMessage({ title: '追加しました', message: `「${track.title}」を「${playlist.name}」に追加しました。` });
+  if (activeTab === 'playlist' && playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
+    showPlaylistDetail(targetId);
   }
 }
 
-/** カートで選んだ曲を、選んだメドレーへ一括追加する（FR-1.13） */
+/** カートで選んだ曲を、選んだプレイリストへ一括追加する（FR-1.13） */
 async function handleAddFromCart(trackIds) {
   if (trackIds.length === 0) return;
-  const medleys = await getAllMedleys();
-  const targetId = await showMedleyPicker(medleys);
+  const playlists = await getAllPlaylists();
+  const targetId = await showPlaylistPicker(playlists);
   if (!targetId) return;
-  const medley = await getMedley(targetId);
-  if (!medley) return;
+  const playlist = await getPlaylist(targetId);
+  if (!playlist) return;
 
-  const { toAdd, alreadyInMedley } = partitionCartForMedley(trackIds, medley);
-  let updated = medley;
+  const { toAdd, alreadyInPlaylist } = partitionCartForPlaylist(trackIds, playlist);
+  let updated = playlist;
   for (const id of toAdd) {
-    updated = addTrackToMedley(updated, id).medley;
+    updated = addTrackToPlaylist(updated, id).playlist;
   }
-  if (toAdd.length > 0) await saveMedley(updated);
+  if (toAdd.length > 0) await savePlaylist(updated);
 
   cart = removeManyFromCart(cart, toAdd);
   persistCart(cart);
 
-  const summary = alreadyInMedley.length > 0
-    ? `${toAdd.length}曲を「${medley.name}」に追加しました。（${alreadyInMedley.length}曲は既に追加済みのため追加しませんでした）`
-    : `${toAdd.length}曲を「${medley.name}」に追加しました。`;
+  const summary = alreadyInPlaylist.length > 0
+    ? `${toAdd.length}曲を「${playlist.name}」に追加しました。（${alreadyInPlaylist.length}曲は既に追加済みのため追加しませんでした）`
+    : `${toAdd.length}曲を「${playlist.name}」に追加しました。`;
   await showMessage({ title: '追加しました', message: summary });
 
-  if (activeTab === 'medley' && medleyView.screen === 'detail' && medleyView.medleyId === targetId) {
-    showMedleyDetail(targetId);
+  if (activeTab === 'playlist' && playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
+    showPlaylistDetail(targetId);
   }
 }
 

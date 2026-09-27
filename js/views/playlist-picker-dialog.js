@@ -1,4 +1,4 @@
-// フェーズ7：「追加先のメドレーを選ぶ」モーダル（FR-2.4, FR-1.13）。
+// フェーズ7：「追加先のプレイリストを選ぶ」モーダル（FR-2.4, FR-1.13）。
 // dialog.js と同じ、Promiseベースの独自オーバーレイ方式（ブラウザ標準confirmの代わり）。
 
 function escapeHtml(str) {
@@ -6,22 +6,22 @@ function escapeHtml(str) {
 }
 
 /**
- * @param {Array<{id: string, name: string, trackIds: Array}>} medleys
- * @returns {Promise<string|null>} 選んだメドレーID。キャンセル、またはメドレーが0件の場合はnull
+ * @param {Array<{id: string, name: string, trackIds: Array}>} playlists
+ * @returns {Promise<string|null>} 選んだプレイリストID。キャンセル、またはプレイリストが0件の場合はnull
  */
-export function showMedleyPicker(medleys) {
+export function showPlaylistPicker(playlists) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'dialog-overlay';
     overlay.innerHTML = `
       <div class="dialog-box" role="dialog" aria-modal="true">
-        <h2 class="dialog-title">追加先のメドレーを選ぶ</h2>
-        ${medleys.length === 0
-          ? '<p class="dialog-message">メドレーがまだありません。先にメドレータブでメドレーを作成してください。</p>'
+        <h2 class="dialog-title">追加先のプレイリストを選ぶ</h2>
+        ${playlists.length === 0
+          ? '<p class="dialog-message">プレイリストがまだありません。</p>'
           : `<ul class="list picker-list">
-              ${medleys.map((m) => `
+              ${playlists.map((m) => `
                 <li class="list-item">
-                  <button type="button" class="list-item-main medley-picker-item" data-id="${escapeHtml(m.id)}">
+                  <button type="button" class="list-item-main playlist-picker-item" data-id="${escapeHtml(m.id)}">
                     <span class="item-name">${escapeHtml(m.name)}</span>
                     <span class="item-sub">${m.trackIds.length}曲</span>
                   </button>
@@ -39,7 +39,7 @@ export function showMedleyPicker(medleys) {
       overlay.remove();
       resolve(id);
     };
-    overlay.querySelectorAll('.medley-picker-item').forEach((btn) => {
+    overlay.querySelectorAll('.playlist-picker-item').forEach((btn) => {
       btn.addEventListener('click', () => finish(btn.dataset.id));
     });
     overlay.querySelector('.dialog-cancel').addEventListener('click', () => finish(null));

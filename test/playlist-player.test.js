@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MedleyPlayer } from '../js/medley-player.js';
+import { PlaylistPlayer } from '../js/playlist-player.js';
 
 // 実際の<audio>要素・AudioContextの代わりに使う、テスト用の偽物。
 class FakeAudio extends EventTarget {
@@ -74,7 +74,7 @@ function makeTracks(n) {
 function createPlayer(tracks, overrides = {}) {
   const createdAudios = [];
   const changes = [];
-  const player = new MedleyPlayer(tracks, {
+  const player = new PlaylistPlayer(tracks, {
     crossfadeSeconds: 0,
     createAudio: () => {
       const a = new FakeAudio();
@@ -88,7 +88,7 @@ function createPlayer(tracks, overrides = {}) {
   return { player, createdAudios, changes };
 }
 
-test('start: 0曲のメドレーは再生できない (FR-4.14)', async () => {
+test('start: 0曲のプレイリストは再生できない (FR-4.14)', async () => {
   const { player, changes } = createPlayer([]);
   assert.equal(player.isEmpty, true);
   await player.start();
@@ -176,7 +176,7 @@ test('togglePlayPause: 再生中に呼ぶと一時停止し、もう一度呼ぶ
   assert.equal(player.playing, true);
 });
 
-test('1曲のみのメドレーは、一巡後も同じ曲を繰り返す (FR-4.14)', async () => {
+test('1曲のみのプレイリストは、一巡後も同じ曲を繰り返す (FR-4.14)', async () => {
   const tracks = makeTracks(1);
   const { player, createdAudios, changes } = createPlayer(tracks);
   assert.equal(player.isSingleTrack, true);
@@ -192,7 +192,7 @@ test('3曲連続で再生に失敗すると停止し、onFailureStopが呼ばれ
   const tracks = makeTracks(5);
   let stopped = false;
   const createdAudios = [];
-  const player = new MedleyPlayer(tracks, {
+  const player = new PlaylistPlayer(tracks, {
     crossfadeSeconds: 0,
     createAudio: () => {
       const a = new FakeAudio();
@@ -220,7 +220,7 @@ test('handleOffline: 再生中にオフラインになると一時停止する (
   assert.equal(player.playing, false);
 });
 
-test('pauseForPreview: 検索結果の試聴時に、再生中のメドレーが一時停止する (FR-1.6)', async () => {
+test('pauseForPreview: 検索結果の試聴時に、再生中のプレイリストが一時停止する (FR-1.6)', async () => {
   const tracks = makeTracks(2);
   const { player } = createPlayer(tracks);
   await player.start();

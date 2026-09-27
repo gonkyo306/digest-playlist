@@ -88,12 +88,16 @@ class FakeTransaction extends EventTarget {
 class FakeDB {
   constructor() {
     this._stores = new Map(); // name -> { map, keyPath }
+    this.version = 0;
     this.objectStoreNames = {
       contains: (name) => this._stores.has(name),
     };
   }
   createObjectStore(name, options) {
     this._stores.set(name, { map: new Map(), keyPath: options.keyPath });
+  }
+  deleteObjectStore(name) {
+    this._stores.delete(name);
   }
   transaction(storeName) {
     return new FakeTransaction(this, storeName);
@@ -103,18 +107,23 @@ class FakeDB {
 const databases = new Map(); // name -> FakeDB
 
 export const fakeIndexedDB = {
-  open(name) {
+  open(name, version = 1) {
     const req = new FakeRequest();
     let db = databases.get(name);
-    const isNew = !db;
+    const oldVersion = db ? db.version : 0;
     if (!db) {
       db = new FakeDB();
       databases.set(name, db);
     }
+    const needsUpgrade = version > oldVersion;
     queueMicrotask(() => {
-      if (isNew && req.onupgradeneeded) {
-        req.result = db;
-        req.onupgradeneeded({ target: req });
+      req.result = db;
+      if (needsUpgrade) {
+        db.version = version;
+        req.transaction = new FakeTransaction(db, null);
+        if (req.onupgradeneeded) {
+          req.onupgradeneeded({ target: req, oldVersion, newVersion: version });
+        }
       }
       req._succeed(db);
     });

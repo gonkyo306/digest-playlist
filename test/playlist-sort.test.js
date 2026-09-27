@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sortTracksByArtist } from '../js/medley-sort.js';
+import { sortTracksByArtist } from '../js/playlist-sort.js';
 
 test('sortTracksByArtist: アーティスト名順に並び替える (FR-2.11)', () => {
   const tracks = [

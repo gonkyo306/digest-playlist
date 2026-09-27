@@ -1,6 +1,6 @@
 {
-  "name": "ダイジェスト・メドレー",
-  "short_name": "メドレー",
+  "name": "ダイジェスト・プレイリスト",
+  "short_name": "プレイリスト",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

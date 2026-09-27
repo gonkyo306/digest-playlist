@@ -1,4 +1,4 @@
-// フェーズ4：メドレーの自動再生（本アプリの中心）
+// フェーズ4：プレイリストの自動再生（本アプリの中心）
 // フェーズ0で検証済みのロジック（js/verify.js の CrossfadePlayer）を土台に、
 // 曲順決定（playback-order.js）・履歴（playback-history.js）・連続失敗判定（failure-tracker.js）を
 // それぞれ独立したモジュールに切り出し、Audio要素・AudioContextの生成を差し替え可能にすることで
@@ -23,7 +23,7 @@ import { ConsecutiveFailureTracker } from './failure-tracker.js';
 const DEFAULT_CROSSFADE_SECONDS = 2;
 const DEFAULT_FAILURE_THRESHOLD = 3;
 
-export class MedleyPlayer {
+export class PlaylistPlayer {
   /**
    * @param {Array<{id, title, artist, artwork, previewUrl}>} tracks
    * @param {object} [options]

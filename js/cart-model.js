@@ -24,14 +24,14 @@ export function isInCart(cart, trackId) {
 }
 
 /**
- * カートの曲を、指定したメドレーへ追加する場合に、
- * 追加できる曲（まだそのメドレーにない）と、すでに追加済みの曲を分ける（FR-1.13, FR-2.6）。
+ * カートの曲を、指定したプレイリストへ追加する場合に、
+ * 追加できる曲（まだそのプレイリストにない）と、すでに追加済みの曲を分ける（FR-1.13, FR-2.6）。
  * @param {Array<string|number>} cart カート内の曲ID配列
- * @param {{trackIds: Array<string|number>}} medley 追加先メドレー
+ * @param {{trackIds: Array<string|number>}} playlist 追加先プレイリスト
  */
-export function partitionCartForMedley(cart, medley) {
-  const existing = new Set(medley.trackIds);
+export function partitionCartForPlaylist(cart, playlist) {
+  const existing = new Set(playlist.trackIds);
   const toAdd = cart.filter((id) => !existing.has(id));
-  const alreadyInMedley = cart.filter((id) => existing.has(id));
-  return { toAdd, alreadyInMedley };
+  const alreadyInPlaylist = cart.filter((id) => existing.has(id));
+  return { toAdd, alreadyInPlaylist };
 }

@@ -1,7 +1,7 @@
 // カートの永続化（NFR-3.4）。ローカルストレージに、曲IDの配列をJSONで保存する。
-// メドレー本体（storage.js、IndexedDB）とは別の、単純な1キーの保存先として扱う。
+// プレイリスト本体（storage.js、IndexedDB）とは別の、単純な1キーの保存先として扱う。
 // storage引数を渡せるようにしてあるのは、Unitテストで実ブラウザのlocalStorageに
-// 依存せず検証できるようにするため（medley-player.jsのaudio差し替えと同じ方針）。
+// 依存せず検証できるようにするため（playlist-player.jsのaudio差し替えと同じ方針）。
 
 const STORAGE_KEY = 'digest-playlist:cart';
 
