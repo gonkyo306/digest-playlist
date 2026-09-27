@@ -1,8 +1,12 @@
-// フェーズ3：メドレー詳細画面（曲一覧の表示、「曲を追加」導線。FR-2.9, FR-2.4, FR-2.5）
+// フェーズ3：メドレー詳細画面（曲一覧の表示。FR-2.9, FR-2.5）
 // フェーズ4：メドレー本編の再生パネルもここに追加（FR-4.5〜4.15, FR-4.11）
 // フェーズ5：通信エラー時の表示（NFR-2.3）を追加
+// フェーズ7：「＋曲を追加」導線は廃止（検索タブから追加する。FR-2.4）
+// フェーズ11：曲一覧はアーティスト名順で表示（FR-2.11）。操作ボタンはアイコン表示（FR-5.3）
 
 import { showConfirm } from './dialog.js';
+import { sortTracksByArtist } from '../medley-sort.js';
+import { iconLabel } from './icons.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -11,10 +15,12 @@ function escapeHtml(str) {
 /**
  * @param {HTMLElement} container
  * @param {{medley: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string}} data
- * @param {{onBack, onAddTrack, onRemoveTrack, onStartPlayback, onTogglePlayPause, onNext, onPrev}} actions
+ * @param {{onBack, onRemoveTrack, onStartPlayback, onTogglePlayPause, onNext, onPrev}} actions
  */
-export function renderMedleyDetail(container, { medley, tracks, unavailableIds, fetchError }, actions) {
-  const canPlay = tracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
+export function renderMedleyDetail(container, { medley, tracks: rawTracks, unavailableIds, fetchError }, actions) {
+  const canPlay = rawTracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
+  // 表示順のみアーティスト名順に並び替える（FR-2.11）。再生順（順序はtrackIds/rawTracks側）には影響しない。
+  const tracks = sortTracksByArtist(rawTracks);
 
   container.innerHTML = `
     <button id="back-btn" class="link-btn">← 一覧へ戻る</button>
@@ -36,18 +42,18 @@ export function renderMedleyDetail(container, { medley, tracks, unavailableIds, 
           </div>
         </div>
         <div class="playback-controls">
-          <button id="pb-prev" class="icon-btn" disabled>前へ</button>
-          <button id="pb-playpause" class="primary">再生</button>
-          <button id="pb-next" class="icon-btn">次へ</button>
+          <button id="pb-prev" class="icon-btn" disabled>${iconLabel('prev', '前へ')}</button>
+          <button id="pb-playpause" class="primary">${iconLabel('play', '再生')}</button>
+          <button id="pb-next" class="icon-btn">${iconLabel('next', '次へ')}</button>
         </div>
         <div id="pb-status" class="note"></div>
       </section>
     ` : ''}
 
-    <button id="add-track-btn" class="primary">＋ 曲を追加</button>
+    <p class="note">曲の追加は「検索」タブから行えます。</p>
     <ul class="list">
       ${tracks.length === 0
-        ? '<li class="empty">曲がまだ追加されていません。「曲を追加」から検索してください。</li>'
+        ? '<li class="empty">曲がまだ追加されていません。「検索」タブから追加してください。</li>'
         : tracks.map((t) => `
           <li class="list-item track-item">
             <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
@@ -55,14 +61,13 @@ export function renderMedleyDetail(container, { medley, tracks, unavailableIds, 
               <div class="item-name">${escapeHtml(t.title)}</div>
               <div class="item-sub">${escapeHtml(t.artist)}</div>
             </div>
-            <button class="icon-btn danger track-remove" title="削除">削除</button>
+            <button class="icon-btn danger track-remove" title="削除">${iconLabel('remove', '削除')}</button>
           </li>
         `).join('')}
     </ul>
   `;
 
   container.querySelector('#back-btn').addEventListener('click', actions.onBack);
-  container.querySelector('#add-track-btn').addEventListener('click', actions.onAddTrack);
 
   container.querySelectorAll('.track-item').forEach((li, i) => {
     const track = tracks[i];
@@ -117,7 +122,7 @@ export function updatePlaybackPanel(container, state) {
     artistEl.textContent = state.track.artist;
     artworkEl.src = state.track.artwork || '';
   }
-  playPauseBtn.textContent = state.playing ? '一時停止' : '再生';
+  playPauseBtn.innerHTML = iconLabel(state.playing ? 'pause' : 'play', state.playing ? '一時停止' : '再生');
   prevBtn.disabled = !state.canGoBack;
 
   if (state.stopped) {

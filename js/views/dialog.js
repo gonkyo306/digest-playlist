@@ -47,6 +47,31 @@ export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel =
 }
 
 /**
+ * 通知メッセージ（OKのみ）。処理結果を伝えるための単純な通知（FR-2.4, FR-1.13）。
+ * @param {{title?: string, message: string, okLabel?: string}} options
+ * @returns {Promise<void>}
+ */
+export function showMessage({ title, message, okLabel = 'OK' }) {
+  return new Promise((resolve) => {
+    const overlay = buildOverlay(`
+      ${title ? `<h2 class="dialog-title">${escapeHtml(title)}</h2>` : ''}
+      <p class="dialog-message">${escapeHtml(message)}</p>
+      <div class="dialog-actions">
+        <button type="button" class="dialog-btn dialog-confirm">${escapeHtml(okLabel)}</button>
+      </div>
+    `);
+    const finish = () => {
+      closeOverlay(overlay);
+      resolve();
+    };
+    overlay.querySelector('.dialog-confirm').addEventListener('click', finish);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) finish();
+    });
+  });
+}
+
+/**
  * 入力ダイアログ（テキスト入力＋OK/キャンセル）。prompt()の代わり。
  * @param {{title?: string, message?: string, defaultValue?: string, confirmLabel?: string, cancelLabel?: string}} options
  * @returns {Promise<string|null>} OK時は入力文字列、キャンセル時はnull

@@ -1,5 +1,5 @@
 // 最小限のキャッシュのみ。オフライン再生自体は対象外（1-3）。
-const CACHE_NAME = 'digest-playlist-shell-v5';
+const CACHE_NAME = 'digest-playlist-shell-v6';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',
@@ -8,14 +8,27 @@ const SHELL_FILES = [
   './js/storage.js',
   './js/track-api.js',
   './js/search-api.js',
+  './js/staged-search-api.js',
   './js/preview-player.js',
   './js/failure-tracker.js',
   './js/playback-order.js',
   './js/playback-history.js',
   './js/medley-player.js',
+  './js/medley-sort.js',
+  './js/album-playback.js',
+  './js/cart-model.js',
+  './js/cart-storage.js',
   './js/views/medley-list-view.js',
   './js/views/medley-detail-view.js',
   './js/views/search-view.js',
+  './js/views/freeword-search-view.js',
+  './js/views/staged-search-view.js',
+  './js/views/cart-view.js',
+  './js/views/track-row.js',
+  './js/views/tab-bar-view.js',
+  './js/views/mini-player-view.js',
+  './js/views/medley-picker-dialog.js',
+  './js/views/icons.js',
   './js/views/dialog.js',
   './manifest.json',
 ];
