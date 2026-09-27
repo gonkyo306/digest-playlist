@@ -1,0 +1,70 @@
+:root {
+  color-scheme: light dark;
+  --bg: #111318;
+  --fg: #f0f0f2;
+  --accent: #6ea8fe;
+  --card: #1b1e26;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+h1 { font-size: 1.1rem; }
+.note { color: #9aa1ad; font-size: 0.85rem; }
+
+#track-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 16px 0;
+}
+#artwork {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  background: #333;
+  object-fit: cover;
+}
+#track-title { font-weight: 600; }
+#track-artist { color: #9aa1ad; font-size: 0.9rem; }
+
+#controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+#controls button {
+  flex: 1;
+  padding: 14px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #0a0a0a;
+  font-weight: 600;
+}
+#controls button:active { opacity: 0.8; }
+
+#status {
+  font-size: 0.85rem;
+  color: #9aa1ad;
+  margin-bottom: 16px;
+}
+
+#log {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  max-height: 40vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
