@@ -1,9 +1,18 @@
-// フェーズ0時点では最小限のキャッシュのみ。オフライン再生自体は対象外（1-3）。
-const CACHE_NAME = 'digest-playlist-shell-v1';
+// 最小限のキャッシュのみ。オフライン再生自体は対象外（1-3）。
+const CACHE_NAME = 'digest-playlist-shell-v2';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',
   './js/app.js',
+  './js/models.js',
+  './js/storage.js',
+  './js/track-api.js',
+  './js/search-api.js',
+  './js/preview-player.js',
+  './js/failure-tracker.js',
+  './js/views/medley-list-view.js',
+  './js/views/medley-detail-view.js',
+  './js/views/search-view.js',
   './manifest.json',
 ];
 

@@ -68,3 +68,95 @@ h1 { font-size: 1.1rem; }
   overflow-y: auto;
   white-space: pre-wrap;
 }
+
+/* --- フェーズ2・3：一覧／詳細／検索画面 --- */
+#app { max-width: 480px; margin: 0 auto; }
+
+.inline-form {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.inline-form input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #333844;
+  background: var(--card);
+  color: var(--fg);
+  font-size: 1rem;
+}
+.inline-form button,
+button.primary {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #0a0a0a;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.95rem;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+.list { list-style: none; margin: 0; padding: 0; }
+.list .empty {
+  color: #9aa1ad;
+  padding: 16px;
+  text-align: center;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.list-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: var(--fg);
+  padding: 6px 4px;
+  text-align: left;
+}
+.item-main { flex: 1; min-width: 0; }
+.item-name { font-weight: 600; }
+.item-sub { color: #9aa1ad; font-size: 0.85rem; }
+
+.icon-btn {
+  border: none;
+  border-radius: 8px;
+  background: #2a2f3a;
+  color: var(--fg);
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.icon-btn.danger { color: #ff8a8a; }
+.icon-btn:disabled { opacity: 0.5; }
+
+.track-item .artwork-sm,
+.track-item .artwork-sm ~ .item-main { vertical-align: middle; }
+.artwork-sm {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #333;
+  flex-shrink: 0;
+}

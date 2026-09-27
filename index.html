@@ -3,35 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ダイジェスト・メドレー（開発中）</title>
+<title>ダイジェスト・メドレー</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111318">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<main>
-  <h1>ダイジェスト・メドレー（フェーズ0：技術検証版）</h1>
-  <p class="note">これは本番のUIではなく、画面オフ再生とクロスフェードの技術検証用ページです。</p>
-
-  <section id="track-info">
-    <img id="artwork" alt="">
-    <div>
-      <div id="track-title">（未再生）</div>
-      <div id="track-artist"></div>
-    </div>
-  </section>
-
-  <div id="controls">
-    <button id="btn-prev">前へ</button>
-    <button id="btn-playpause">再生</button>
-    <button id="btn-next">次へ</button>
-  </div>
-
-  <div id="status"></div>
-
-  <h2>検証ログ（画面をつけたときに確認してください）</h2>
-  <div id="log"></div>
-</main>
-<script src="js/app.js"></script>
+<div id="app"></div>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
