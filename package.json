@@ -1,0 +1,10 @@
+{
+  "name": "digest-playlist",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "お気に入り曲メドレーアプリ（個人利用・素のJavaScript）",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}
