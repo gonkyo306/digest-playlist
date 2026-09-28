@@ -6,7 +6,7 @@
 // CR-019：この関数はapp.js側で1回だけ呼び出され、タブ切替ではDOMを再生成しない前提
 // （検索結果・ドリルダウンの位置は、このモジュール内のクロージャ変数として保持され続ける）。
 // CR-020/023：試聴はミニプレイヤーに表示される（previewPlayer経由。app.js側で連携）。
-// CR-021/024：カートを廃止し、チェックボックスでその場複数選択→右上の「追加」ボタンで一括追加する。
+// CR-021/024：カートを廃止し、行の＋ボタンでその場複数選択→右上の「追加」ボタンで一括追加する。
 // CR-026：行の種別アイコン（曲／アーティスト／アルバム）はtrack-row.js側で付与する。
 
 import {
@@ -128,7 +128,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         previousModeForTracks = 'results';
         loadAlbumTracksFromResults();
       });
-      // bindTrackRowEventsは.track-checkbox/.preview-btnのクラスセレクタだけで曲行を拾うため、
+      // bindTrackRowEventsは.toggle-add-btn/.track-playのクラスセレクタだけで曲行を拾うため、
       // 同じresultsEl内にアーティスト/アルバム行が混在していてもindexはtracks配列とずれない。
       bindTrackRowEvents(resultsEl, tracks, {
         previewPlayer,

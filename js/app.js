@@ -229,12 +229,6 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       playlistView = { screen: 'list' };
       showPlaylistList();
     },
-    onRemoveTrack: async (trackId) => {
-      const updated = removeTrackFromPlaylist(playlist, trackId);
-      await savePlaylist(updated);
-      if (playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) disposeCurrentPlayer();
-      showPlaylistDetail(playlistId);
-    },
     onStartPlayback: () => {
       startPlaylistPlayback(playlistId, available);
       // 再生ボタンを非表示にし、ミニプレイヤーに操作を委ねるため、詳細画面を再描画する（CR-016）。
@@ -247,8 +241,14 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       startPlaylistPlayback(playlistId, available, startIndex === -1 ? undefined : startIndex);
       renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
-    onRename: async (newName) => {
-      await savePlaylist(renamePlaylist(playlist, newName));
+    onSaveEdit: async (newName, remainingTrackIds) => {
+      const removedIds = playlist.trackIds.filter((id) => !remainingTrackIds.includes(id));
+      let updated = renamePlaylist(playlist, newName);
+      removedIds.forEach((id) => { updated = removeTrackFromPlaylist(updated, id); });
+      await savePlaylist(updated);
+      if (removedIds.length && playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) {
+        disposeCurrentPlayer();
+      }
       showPlaylistDetail(playlistId);
     },
     onDelete: async () => {

@@ -168,27 +168,15 @@ button.primary {
 
 /* フェーズ21（不具合修正）：.list-item-mainは既定で縦並び（プレイリスト名＋曲数等）だが、
    種別アイコン・ジャケット・番号とタイトルを横並びで見せたい行（アーティスト・アルバムの各行）
-   ではこちらを使い、横並びに上書きする（CR-031/034）。.track-playはフェーズ22で.list-item
-   （既定で横並び）に変更したため、このルールは主にresult-artist-open/result-album-open向け */
+   ではこちらを使い、横並びに上書きする（CR-031/034）。フェーズ23：追加先選択の各行
+   （playlist-picker-item）も、名前・曲数とバッジを横並びにするため同様に扱う */
 .track-play,
 .result-artist-open,
-.result-album-open {
+.result-album-open,
+.playlist-picker-item {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-}
-
-/* フェーズ22（仕様見直し）：検索結果のチェックボックスは、試聴できる行（カード）の外に置き、
-   タップしても再生に影響しないことが見た目で伝わるようにする */
-.track-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.track-row .list-item {
-  flex: 1;
-  margin-bottom: 0;
 }
 
 .icon-btn {
@@ -278,6 +266,42 @@ button.primary {
   border-radius: 50%;
 }
 
+/* --- フェーズ23（CR-037）：プレイリスト詳細の編集モード --- */
+.hero-name-input {
+  width: 100%;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--fg);
+}
+.icon-btn.edit-save-btn {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* --- フェーズ23：検索結果の＋トグルボタン・編集モードのマイナスボタン。
+   小さめの丸ボタンとし、ジャケット・曲名のカードと同じ背景に収めてカードの右端まで囲む --- */
+.toggle-add-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--btn-bg);
+  color: var(--fg);
+}
+.toggle-add-btn.is-selected {
+  background: var(--danger);
+  color: #fff;
+}
+
 /* --- フェーズ5：確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） --- */
 .dialog-overlay {
   position: fixed;
@@ -307,16 +331,6 @@ button.primary {
   color: var(--muted);
   margin: 0 0 16px;
   line-height: 1.5;
-}
-.dialog-input {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 1rem;
-  margin-bottom: 16px;
 }
 .dialog-actions {
   display: flex;
@@ -432,16 +446,18 @@ button.primary {
   flex-shrink: 0;
 }
 
-/* --- フェーズ22（仕様見直し）：追加先選択の一覧で、前回追加したプレイリストに付ける小さな案内ラベル --- */
+/* フェーズ23（実機確認フィードバック）：前回追加したプレイリストに付ける小さな案内ラベルは、
+   一覧の並び順は変えず、行の右端に表示する（.item-mainがflex:1のため自然に右端へ寄る） */
 .picker-last-used-badge {
   display: inline-block;
+  flex-shrink: 0;
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--accent);
   border: 1px solid var(--accent);
   border-radius: 999px;
   padding: 1px 8px;
-  margin-bottom: 2px;
+  white-space: nowrap;
 }
 
 /* --- フェーズ10・CR-012：アルバムの全曲一時再生（FR-1.11） --- */
@@ -467,8 +483,6 @@ button.primary {
   padding: 12px 0;
   color: var(--muted);
 }
-
-.track-item .track-checkbox { flex-shrink: 0; width: 18px; height: 18px; }
 
 /* --- フェーズ16（CR-019）：タブ切替時に非表示にするだけで、DOMは破棄しないパネル --- */
 .tab-pane-hidden { display: none; }

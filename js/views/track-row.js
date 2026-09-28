@@ -3,12 +3,14 @@
 // CR-011：追加・削除ボタンはアイコンのみ（テキストラベルなし）。
 // CR-021/024：カート機能は廃止し、チェックボックスはその場での複数選択（一括追加）用として使う。
 // CR-026：行の種別（曲／アーティスト／アルバム）をアイコンで示す。
-// フェーズ21（CR-033）：曲の試聴は、行タップ（チェックボックス部分を除く）で開始／停止する。
+// フェーズ21（CR-033）：曲の試聴は、行タップ（＋ボタン部分を除く）で開始／停止する。
 // 試聴専用のアイコンは表示しない。
-// フェーズ22（仕様見直し）：チェックボックスをタップしても試聴が始まらないことが伝わるよう、
-// チェックボックスを試聴可能な行（カード）の外に出し、独立した見た目にする。
+// フェーズ23（実機確認フィードバック）：チェックボックスは廃止し、行の一番右に小さめの丸い
+// ＋アイコンボタン（白＝未選択／赤＝選択済みのトグル）を置く。ボタンはジャケット・曲名の
+// カードと同じ背景の中に収め、カードの右端までを1つの塊として囲む（見た目上は内側だが、
+// タップ領域は行本体とは独立しており、＋ボタンをタップしても試聴は始まらない）。
 
-import { typeIcon } from './icons.js';
+import { typeIcon, iconOnly } from './icons.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,17 +25,18 @@ function escapeHtml(str) {
 export function trackRowHtml(track, index, options = {}) {
   const { checked = false } = options;
   return `
-    <li class="track-row track-item" data-index="${index}">
-      <input type="checkbox" class="track-checkbox" data-index="${index}"
-        ${checked ? 'checked' : ''}
-        aria-label="一括追加する曲として選択">
-      <button type="button" class="list-item track-play" data-index="${index}" aria-label="試聴">
+    <li class="list-item track-item" data-index="${index}">
+      <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
         ${typeIcon('track')}
         <img src="${escapeHtml(track.artwork)}" alt="" class="artwork-sm">
         <div class="item-main">
           <div class="item-name">${escapeHtml(track.title)}</div>
           <div class="item-sub">${escapeHtml(track.artist)}${track.album ? ` / ${escapeHtml(track.album)}` : ''}</div>
         </div>
+      </button>
+      <button type="button" class="toggle-add-btn${checked ? ' is-selected' : ''}" data-index="${index}"
+        aria-pressed="${checked}" aria-label="追加候補への登録・解除を切り替え">
+        ${iconOnly('add')}
       </button>
     </li>
   `;
@@ -49,14 +52,16 @@ export function trackRowHtml(track, index, options = {}) {
 export function compactTrackRowHtml(track, index, options = {}) {
   const { checked = false } = options;
   return `
-    <li class="track-row track-item track-item-compact" data-index="${index}">
-      <input type="checkbox" class="track-checkbox" data-index="${index}"
-        ${checked ? 'checked' : ''} aria-label="一括追加する曲として選択">
-      <button type="button" class="list-item track-play" data-index="${index}" aria-label="試聴">
+    <li class="list-item track-item track-item-compact" data-index="${index}">
+      <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
         <span class="track-number">${index + 1}.</span>
         <div class="item-main">
           <div class="item-name">${escapeHtml(track.title)}</div>
         </div>
+      </button>
+      <button type="button" class="toggle-add-btn${checked ? ' is-selected' : ''}" data-index="${index}"
+        aria-pressed="${checked}" aria-label="追加候補への登録・解除を切り替え">
+        ${iconOnly('add')}
       </button>
     </li>
   `;
@@ -102,8 +107,8 @@ export function albumRowHtml(album, index, options = {}) {
 }
 
 /**
- * トラック行のイベント（試聴の開始／停止・チェック切り替え）を結びつける。
- * 行タップ（チェックボックス部分を除く）で、その曲の試聴を開始／停止する（CR-033）。
+ * トラック行のイベント（試聴の開始／停止・＋ボタンでの選択切り替え）を結びつける。
+ * 行タップ（＋ボタン部分を除く）で、その曲の試聴を開始／停止する（CR-033）。
  * @param {HTMLElement} listEl trackRowHtml/compactTrackRowHtmlをmapしたulなどの要素
  * @param {Array<object>} tracks
  * @param {{previewPlayer: import('../preview-player.js').PreviewPlayer, onCheckToggle: Function}} handlers
@@ -120,9 +125,17 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onCheckToggl
     });
   });
 
-  listEl.querySelectorAll('.track-checkbox').forEach((checkbox) => {
-    const track = tracks[Number(checkbox.dataset.index)];
-    checkbox.addEventListener('change', () => onCheckToggle(track, checkbox.checked));
+  listEl.querySelectorAll('.toggle-add-btn').forEach((btn) => {
+    const track = tracks[Number(btn.dataset.index)];
+    btn.addEventListener('click', () => {
+      // チェックボックス（自身の見た目を自律的に切り替える）と同様、ボタン自身の見た目も
+      // ここで直接切り替える。呼び出し側（search-view.js）はヘッダーの「追加」ボタンの
+      // 件数表示を更新するだけでよく、行一覧全体の再描画は不要。
+      const nextChecked = !btn.classList.contains('is-selected');
+      btn.classList.toggle('is-selected', nextChecked);
+      btn.setAttribute('aria-pressed', String(nextChecked));
+      onCheckToggle(track, nextChecked);
+    });
   });
 }
 

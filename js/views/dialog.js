@@ -1,11 +1,13 @@
 // フェーズ5：確認・入力ダイアログ（ブラウザ標準のconfirm/promptの代わりに、
 // アプリのデザインに合わせた独自の見た目のダイアログを表示する）
 //
-// confirm()/prompt()と違い非同期（Promiseベース）。呼び出し側は await で結果を待つ。
+// confirm()と違い非同期（Promiseベース）。呼び出し側は await で結果を待つ。
 // CR-028（NFR-5.3）：連続タップ等で複数のオーバーレイが同時に開いてしまわないよう、
-// 全てのダイアログ（このファイルのshowConfirm/showMessage/showPrompt、および
+// 全てのダイアログ（このファイルのshowConfirm/showMessage、および
 // playlist-picker-dialog.jsのshowPlaylistPicker）を1つのキューで直列化する。
 // 既に1つ開いている間の新しい呼び出しは、先のダイアログが閉じられるまで待ってから開く。
+// フェーズ23（CR-037）：プレイリスト名の変更は、名前変更ダイアログ（showPrompt）ではなく、
+// 詳細画面の編集モード内でその場編集する方式に変更したため、showPromptは廃止した。
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -86,42 +88,6 @@ export function showMessage({ title, message, okLabel = 'OK' }) {
     overlay.querySelector('.dialog-confirm').addEventListener('click', finish);
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) finish();
-    });
-  }));
-}
-
-/**
- * 入力ダイアログ（テキスト入力＋OK/キャンセル）。prompt()の代わり。
- * @param {{title?: string, message?: string, defaultValue?: string, confirmLabel?: string, cancelLabel?: string}} options
- * @returns {Promise<string|null>} OK時は入力文字列、キャンセル時はnull
- */
-export function showPrompt({ title, message, defaultValue = '', confirmLabel = 'OK', cancelLabel = 'キャンセル' }) {
-  return enqueueDialog(() => new Promise((resolve) => {
-    const overlay = buildOverlay(`
-      ${title ? `<h2 class="dialog-title">${escapeHtml(title)}</h2>` : ''}
-      ${message ? `<p class="dialog-message">${escapeHtml(message)}</p>` : ''}
-      <input type="text" class="dialog-input" value="${escapeHtml(defaultValue)}" maxlength="50">
-      <div class="dialog-actions">
-        <button type="button" class="dialog-btn dialog-cancel">${escapeHtml(cancelLabel)}</button>
-        <button type="button" class="dialog-btn dialog-confirm">${escapeHtml(confirmLabel)}</button>
-      </div>
-    `);
-    const input = overlay.querySelector('.dialog-input');
-    input.focus();
-    input.select();
-
-    const finish = (result) => {
-      closeOverlay(overlay);
-      resolve(result);
-    };
-    overlay.querySelector('.dialog-cancel').addEventListener('click', () => finish(null));
-    overlay.querySelector('.dialog-confirm').addEventListener('click', () => finish(input.value));
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') finish(input.value);
-      if (e.key === 'Escape') finish(null);
-    });
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) finish(null);
     });
   }));
 }
