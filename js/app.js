@@ -1,6 +1,9 @@
 // アプリ本体のエントリポイント。
 // フェーズ7〜11：「プレイリスト」「検索」の2タブ構成（FR-6.1）、再生の永続化・ミニプレイヤー
 // （FR-4.16, FR-4.17）、検索の拡張（FR-1.1, 1.8〜1.13）、アーティスト順ソート（FR-2.11）を統合する。
+// フェーズ14〜19（CR-016〜029）：再生パネル廃止・ミニプレイヤー集約、試聴のミニプレイヤー統合、
+// 検索の統合とドリルダウン、タブ間の状態保持、カート廃止とその場一括追加、
+// 追加先プレイリストの記憶、細部の品質改善をまとめて反映する。
 
 import { getAllPlaylists, getPlaylist, savePlaylist, deletePlaylist } from './storage.js';
 import {
@@ -8,37 +11,37 @@ import {
   renamePlaylist,
   addTrackToPlaylist,
   removeTrackFromPlaylist,
-  isDuplicateTrack,
 } from './models.js';
 import { fetchTrackInfoByIds } from './track-api.js';
 import { fetchSearchResults } from './search-api.js';
-import { fetchArtists, fetchArtistAlbums, fetchAlbumTracks } from './staged-search-api.js';
-import { orderAlbumTracks } from './album-playback.js';
 import {
-  addToCart as addToCartModel,
-  removeFromCart as removeFromCartModel,
-  removeManyFromCart,
-  isInCart as isInCartModel,
-  partitionCartForPlaylist,
-} from './cart-model.js';
-import { loadCart, persistCart } from './cart-storage.js';
+  fetchArtistsLimited, fetchAlbumsByTerm, fetchArtistAlbums, fetchAlbumTracks,
+} from './staged-search-api.js';
+import { orderAlbumTracks } from './album-playback.js';
 import { PreviewPlayer } from './preview-player.js';
 import { PlaylistPlayer } from './playlist-player.js';
 import { renderPlaylistList } from './views/playlist-list-view.js';
-import { renderPlaylistDetail, updatePlaybackPanel } from './views/playlist-detail-view.js';
+import { renderPlaylistDetail, updateNowPlayingTrack } from './views/playlist-detail-view.js';
 import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
-import { showPlaylistPicker } from './views/playlist-picker-dialog.js';
+import { showAddDestinationPicker } from './views/playlist-picker-dialog.js';
 import { showMessage } from './views/dialog.js';
 
-const mainContent = document.getElementById('main-content');
+const playlistPaneEl = document.getElementById('playlist-pane');
+const searchPaneEl = document.getElementById('search-pane');
 const tabBarEl = document.getElementById('tab-bar');
 const miniPlayerEl = document.getElementById('mini-player');
 
-const realPreviewPlayer = new PreviewPlayer();
+// --- 試聴（FR-1.5）：CR-020/023でミニプレイヤーにも表示する ---
+let previewTrack = null; // 試聴中の曲（表示用データ）。試聴していなければnull
+const realPreviewPlayer = new PreviewPlayer({
+  onStop: () => {
+    previewTrack = null;
+    renderMiniPlayerBar();
+  },
+});
 // FR-1.6: 試聴が始まったら、再生中のプレイリスト／アルバム一時再生を一時停止する。
-// （検索がプレイリストから独立したので、「試聴の開始」そのものをフックする）
 const previewPlayer = {
   get isPlaying() {
     return realPreviewPlayer.isPlaying;
@@ -48,7 +51,9 @@ const previewPlayer = {
   },
   play(track) {
     if (currentPlayer) currentPlayer.pauseForPreview();
+    previewTrack = track;
     realPreviewPlayer.play(track);
+    renderMiniPlayerBar();
   },
   stop() {
     realPreviewPlayer.stop();
@@ -65,8 +70,8 @@ let currentPlayer = null;
 /** @type {{type: 'playlist', playlistId: string}|{type: 'album', albumName: string}|null} */
 let playbackContext = null;
 
-// --- カート（FR-1.12）：起動時にローカルストレージから読み込む（NFR-3.4） ---
-let cart = loadCart();
+// --- CR-025：直前に追加した先のプレイリストIDを記憶する（アプリのセッション内のみ） ---
+let lastUsedPlaylistId = null;
 
 function disposeCurrentPlayer() {
   if (currentPlayer) currentPlayer.dispose();
@@ -95,58 +100,54 @@ function updateMediaSessionMetadata(track) {
 window.addEventListener('offline', () => currentPlayer && currentPlayer.handleOffline());
 window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnline());
 
-/** 今、プレイリスト詳細画面またはアルバム一時再生の「再生元」を見ているか（＝インライン表示で足りるか） */
-function isViewingCurrentPlayback() {
-  if (!currentPlayer || !playbackContext) return false;
-  if (playbackContext.type === 'playlist') {
-    return activeTab === 'playlist'
-      && playlistView.screen === 'detail'
-      && playlistView.playlistId === playbackContext.playlistId;
-  }
-  // アルバムの一時再生（FR-1.11）：検索タブを表示していれば、再生元相当とみなす
-  return activeTab === 'search';
-}
-
-/** プレイリスト詳細画面のインラインパネル、またはミニプレイヤーへ、再生状態を反映する */
+/**
+ * 再生中の曲一覧ハイライト（CR-022）・ミニプレイヤー（CR-016）へ、再生状態を反映する。
+ * CR-016：再生パネルを廃止したため、詳細画面を見ているかどうかに関わらず、
+ * 再生中は常にミニプレイヤーを表示する。
+ */
 function reflectPlaybackState() {
-  if (!currentPlayer) {
-    renderMiniPlayerBar();
-    return;
-  }
-  if (playbackContext?.type === 'playlist' && isViewingCurrentPlayback()) {
-    updatePlaybackPanel(mainContent, {
-      track: currentPlayer.currentTrack(),
-      playing: currentPlayer.playing,
-      canGoBack: currentPlayer.history.canGoBack(),
-      stopped: currentPlayer.stopped,
-      offlinePaused: currentPlayer.pausedByOffline,
-    });
+  if (playbackContext?.type === 'playlist'
+    && playlistView.screen === 'detail'
+    && playlistView.playlistId === playbackContext.playlistId) {
+    updateNowPlayingTrack(playlistPaneEl, currentPlayer ? currentPlayer.currentTrack()?.id ?? null : null);
   }
   renderMiniPlayerBar();
 }
 
+/** ミニプレイヤーの表示を更新する（試聴中はCR-020/023、本編再生中はCR-016） */
 function renderMiniPlayerBar() {
-  const show = currentPlayer && playbackContext && !isViewingCurrentPlayback();
-  if (!show) {
+  if (previewTrack) {
+    renderMiniPlayer(
+      miniPlayerEl,
+      { track: previewTrack, playing: true, isPreview: true },
+      { onTogglePlayPause: () => previewPlayer.stop() }
+    );
+    return;
+  }
+  if (!currentPlayer || !playbackContext) {
     renderMiniPlayer(miniPlayerEl, null, {});
     return;
   }
   renderMiniPlayer(
     miniPlayerEl,
-    { track: currentPlayer.currentTrack(), playing: currentPlayer.playing },
     {
-      onTogglePlayPause: () => {
-        currentPlayer.togglePlayPause();
-      },
+      track: currentPlayer.currentTrack(),
+      playing: currentPlayer.playing,
+      canGoBack: currentPlayer.history.canGoBack(),
+    },
+    {
+      onTogglePlayPause: () => currentPlayer.togglePlayPause(),
       onNext: () => currentPlayer.next(),
+      onPrev: () => currentPlayer.prev(),
       onTap: () => {
         if (playbackContext.type === 'playlist') {
           activeTab = 'playlist';
           playlistView = { screen: 'detail', playlistId: playbackContext.playlistId };
+          showPlaylistDetail(playlistView.playlistId);
         } else {
           activeTab = 'search';
         }
-        renderMain();
+        applyTabVisibility();
       },
     }
   );
@@ -156,32 +157,28 @@ function renderTabBarUi() {
   renderTabBar(tabBarEl, activeTab, (tab) => {
     if (tab === activeTab) return;
     activeTab = tab;
-    renderMain();
+    applyTabVisibility();
   });
 }
 
-function renderMain() {
+/** CR-019：タブ切替では検索・プレイリストどちらのDOMも再生成せず、表示/非表示だけ切り替える */
+function applyTabVisibility() {
   renderTabBarUi();
-  if (activeTab === 'playlist') {
-    if (playlistView.screen === 'detail') showPlaylistDetail(playlistView.playlistId);
-    else showPlaylistList();
-  } else {
-    showSearchTab();
-  }
+  playlistPaneEl.classList.toggle('tab-pane-hidden', activeTab !== 'playlist');
+  searchPaneEl.classList.toggle('tab-pane-hidden', activeTab !== 'search');
   renderMiniPlayerBar();
 }
 
 // --- プレイリストタブ ---
 
 async function showPlaylistList() {
-  previewPlayer.stop();
   playlistView = { screen: 'list' };
   const playlists = await getAllPlaylists();
   playlists.sort((a, b) => b.updatedAt - a.updatedAt);
-  renderPlaylistList(mainContent, playlists, {
+  renderPlaylistList(playlistPaneEl, playlists, {
     onOpen: (id) => {
       playlistView = { screen: 'detail', playlistId: id };
-      renderMain();
+      showPlaylistDetail(id);
     },
     onCreate: async (name) => {
       await savePlaylist(createPlaylist(name));
@@ -199,10 +196,10 @@ async function showPlaylistList() {
       showPlaylistList();
     },
   });
+  renderMiniPlayerBar();
 }
 
 async function showPlaylistDetail(playlistId) {
-  previewPlayer.stop();
   playlistView = { screen: 'detail', playlistId };
   const playlist = await getPlaylist(playlistId);
   if (!playlist) {
@@ -221,10 +218,24 @@ async function showPlaylistDetail(playlistId) {
     }
   }
 
-  renderPlaylistDetail(mainContent, { playlist, tracks: available, unavailableIds, fetchError }, {
+  renderDetailScreen(playlist, available, unavailableIds, fetchError);
+}
+
+/**
+ * プレイリスト詳細画面を描画する。曲情報の取得（ネットワーク通信）は伴わないため、
+ * 再生開始直後など「取得済みのデータのまま、再生状態の表示だけを更新したい」場面でも使う。
+ */
+function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
+  const playlistId = playlist.id;
+  const isCurrentlyPlaying = playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId;
+  const nowPlayingTrackId = isCurrentlyPlaying && currentPlayer ? currentPlayer.currentTrack()?.id ?? null : null;
+
+  renderPlaylistDetail(playlistPaneEl, {
+    playlist, tracks: available, unavailableIds, fetchError, isCurrentlyPlaying, nowPlayingTrackId,
+  }, {
     onBack: () => {
       playlistView = { screen: 'list' };
-      renderMain();
+      showPlaylistList();
     },
     onRemoveTrack: async (trackId) => {
       const updated = removeTrackFromPlaylist(playlist, trackId);
@@ -232,15 +243,14 @@ async function showPlaylistDetail(playlistId) {
       if (playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) disposeCurrentPlayer();
       showPlaylistDetail(playlistId);
     },
-    onStartPlayback: () => startPlaylistPlayback(playlistId, available),
-    onTogglePlayPause: () => currentPlayer && currentPlayer.togglePlayPause(),
-    onNext: () => currentPlayer && currentPlayer.next(),
-    onPrev: () => currentPlayer && currentPlayer.prev(),
+    onStartPlayback: () => {
+      startPlaylistPlayback(playlistId, available);
+      // 再生ボタンを非表示にし、ミニプレイヤーに操作を委ねるため、詳細画面を再描画する（CR-016）。
+      // 曲情報は取得済みのため、再取得はしない。
+      renderDetailScreen(playlist, available, unavailableIds, fetchError);
+    },
   });
-
-  if (playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId && currentPlayer) {
-    reflectPlaybackState();
-  }
+  renderMiniPlayerBar();
 }
 
 function startPlaylistPlayback(playlistId, tracks) {
@@ -276,91 +286,61 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
   reflectPlaybackState();
 }
 
-/** カート内の曲IDを、表示用データに解決する（カートの並び順を保つ） */
-async function resolveCartTracks() {
-  if (cart.length === 0) return [];
-  try {
-    const { available } = await fetchTrackInfoByIds(cart);
-    const byId = new Map(available.map((t) => [String(t.id), t]));
-    return cart.map((id) => byId.get(String(id))).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-/** 検索結果1曲を、選んだプレイリストへ単体で追加する（FR-2.4） */
-async function handleAddSingleTrack(track) {
+/**
+ * 検索結果で選んだ曲（複数可）を、選んだプレイリストへその場で一括追加する（FR-1.13、CR-021/024）。
+ * 既に追加先に含まれている曲は、追加後の完了メッセージで件数を知らせる（選択前のグレーアウトは、
+ * 追加先が選択時点では未確定のため行わない。docs/plan-cr-implementation.md参照）。
+ * @param {Array<string|number>} trackIds
+ * @returns {Promise<boolean>} 実際に追加処理まで進んだ場合はtrue、キャンセルした場合はfalse
+ */
+async function handleBulkAdd(trackIds) {
+  if (trackIds.length === 0) return false;
   const playlists = await getAllPlaylists();
-  const targetId = await showPlaylistPicker(playlists);
-  if (!targetId) return;
+  const targetId = await showAddDestinationPicker(playlists, { lastUsedPlaylistId });
+  if (!targetId) return false;
   const playlist = await getPlaylist(targetId);
-  if (!playlist) return;
+  if (!playlist) return false;
 
-  if (isDuplicateTrack(playlist, track.id)) {
-    await showMessage({ title: '追加済み', message: `「${track.title}」は、すでに「${playlist.name}」に追加されています。` });
-    return;
-  }
-  const { playlist: updated } = addTrackToPlaylist(playlist, track.id);
-  await savePlaylist(updated);
-  await showMessage({ title: '追加しました', message: `「${track.title}」を「${playlist.name}」に追加しました。` });
-  if (activeTab === 'playlist' && playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
-    showPlaylistDetail(targetId);
-  }
-}
-
-/** カートで選んだ曲を、選んだプレイリストへ一括追加する（FR-1.13） */
-async function handleAddFromCart(trackIds) {
-  if (trackIds.length === 0) return;
-  const playlists = await getAllPlaylists();
-  const targetId = await showPlaylistPicker(playlists);
-  if (!targetId) return;
-  const playlist = await getPlaylist(targetId);
-  if (!playlist) return;
-
-  const { toAdd, alreadyInPlaylist } = partitionCartForPlaylist(trackIds, playlist);
   let updated = playlist;
-  for (const id of toAdd) {
-    updated = addTrackToPlaylist(updated, id).playlist;
+  let addedCount = 0;
+  for (const id of trackIds) {
+    const result = addTrackToPlaylist(updated, id);
+    if (result.added) {
+      updated = result.playlist;
+      addedCount += 1;
+    }
   }
-  if (toAdd.length > 0) await savePlaylist(updated);
+  if (addedCount > 0) await savePlaylist(updated);
+  lastUsedPlaylistId = targetId;
 
-  cart = removeManyFromCart(cart, toAdd);
-  persistCart(cart);
-
-  const summary = alreadyInPlaylist.length > 0
-    ? `${toAdd.length}曲を「${playlist.name}」に追加しました。（${alreadyInPlaylist.length}曲は既に追加済みのため追加しませんでした）`
-    : `${toAdd.length}曲を「${playlist.name}」に追加しました。`;
+  const skippedCount = trackIds.length - addedCount;
+  const summary = skippedCount > 0
+    ? `${addedCount}曲を「${playlist.name}」に追加しました。（${skippedCount}曲は既に追加済みのため追加しませんでした）`
+    : `${addedCount}曲を「${playlist.name}」に追加しました。`;
   await showMessage({ title: '追加しました', message: summary });
 
-  if (activeTab === 'playlist' && playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
+  if (playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
     showPlaylistDetail(targetId);
   }
+  return true;
 }
 
-function showSearchTab() {
-  renderSearchView(mainContent, { previewPlayer }, {
-    onSearchFreeword: (term, offset, limit) => fetchSearchResults(term, 'jp', offset, limit),
-    onSearchArtists: (term) => fetchArtists(term),
+function mountSearchTab() {
+  renderSearchView(searchPaneEl, { previewPlayer }, {
+    onSearchTracks: (term, offset, limit) => fetchSearchResults(term, 'jp', offset, limit),
+    onSearchArtists: (term) => fetchArtistsLimited(term),
+    onSearchAlbums: (term) => fetchAlbumsByTerm(term),
     onArtistAlbums: (artistId) => fetchArtistAlbums(artistId),
     onAlbumTracks: (collectionId) => fetchAlbumTracks(collectionId),
-    onAddTrack: (track) => handleAddSingleTrack(track),
-    isInCart: (trackId) => isInCartModel(cart, trackId),
-    onToggleCart: (track, checked) => {
-      cart = checked ? addToCartModel(cart, track.id) : removeFromCartModel(cart, track.id);
-      persistCart(cart);
-    },
     onPlayAlbum: (tracks, opts) => startAlbumPlayback(tracks, opts),
-    cartCount: () => cart.length,
-    getCartTracks: () => resolveCartTracks(),
-    onRemoveFromCart: (trackId) => {
-      cart = removeFromCartModel(cart, trackId);
-      persistCart(cart);
-    },
-    onAddSelectedFromCart: (trackIds) => handleAddFromCart(trackIds),
+    onBulkAdd: (trackIds) => handleBulkAdd(trackIds),
   });
 }
 
-renderMain();
+// --- 起動 ---
+showPlaylistList();
+mountSearchTab();
+applyTabVisibility();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {

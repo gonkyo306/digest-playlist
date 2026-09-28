@@ -1,27 +1,44 @@
 // フェーズ3：プレイリスト詳細画面（曲一覧の表示。FR-2.9, FR-2.5）
-// フェーズ4：プレイリスト本編の再生パネルもここに追加（FR-4.5〜4.15, FR-4.11）
-// フェーズ5：通信エラー時の表示（NFR-2.3）を追加
 // フェーズ7：「＋曲を追加」導線は廃止（検索タブから追加する。FR-2.4）
 // フェーズ11：曲一覧はアーティスト名順で表示（FR-2.11）。操作ボタンはアイコン表示（FR-5.3）
 // CR-011：削除・戻るボタンはアイコンのみ（テキストラベルなし）に変更
+// フェーズ14（CR-016）：インライン再生パネルを廃止。再生前は「再生」ボタンのみを表示し、
+// 再生後の操作（一時停止・前へ・次へ）はミニプレイヤーに集約する（js/app.js側）。
+// フェーズ14（CR-022）：現在再生中の曲の行を強調表示する（updateNowPlayingTrack）。
 
 import { showConfirm } from './dialog.js';
 import { sortTracksByArtist } from '../playlist-sort.js';
-import { iconLabel, iconOnly } from './icons.js';
+import { iconOnly } from './icons.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /**
- * @param {HTMLElement} container
- * @param {{playlist: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string}} data
- * @param {{onBack, onRemoveTrack, onStartPlayback, onTogglePlayPause, onNext, onPrev}} actions
+ * 曲一覧の1行が「現在再生中」として強調表示の対象かどうかを判定する（CR-022）。
+ * IDの型（文字列/数値）が揺れても一致判定できるよう、文字列化して比較する。
+ * @param {{id: string|number}} track
+ * @param {string|number|null} nowPlayingTrackId
  */
-export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, unavailableIds, fetchError }, actions) {
+export function isNowPlayingRow(track, nowPlayingTrackId) {
+  if (nowPlayingTrackId == null || !track) return false;
+  return String(track.id) === String(nowPlayingTrackId);
+}
+
+/**
+ * @param {HTMLElement} container
+ * @param {{playlist: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string,
+ *   isCurrentlyPlaying?: boolean, nowPlayingTrackId?: string|number|null}} data
+ * @param {{onBack, onRemoveTrack, onStartPlayback}} actions
+ */
+export function renderPlaylistDetail(container, {
+  playlist, tracks: rawTracks, unavailableIds, fetchError, isCurrentlyPlaying = false, nowPlayingTrackId = null,
+}, actions) {
   const canPlay = rawTracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
   // 表示順のみアーティスト名順に並び替える（FR-2.11）。再生順（順序はtrackIds/rawTracks側）には影響しない。
   const tracks = sortTracksByArtist(rawTracks);
+  // このプレイリストが今まさに再生中なら、以降の操作はミニプレイヤーに任せ「再生」ボタンは表示しない
+  const showPlayButton = canPlay && !isCurrentlyPlaying;
 
   container.innerHTML = `
     <button id="back-btn" class="icon-btn" aria-label="一覧へ戻る">${iconOnly('back')}</button>
@@ -33,29 +50,15 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, u
           ${unavailableIds.length ? `（うち${unavailableIds.length}曲は取得できませんでした）` : ''}
         </p>`}
 
-    ${canPlay ? `
-      <section id="playback-panel">
-        <div class="now-playing">
-          <img id="np-artwork" alt="" class="artwork-sm">
-          <div class="item-main">
-            <div id="np-title" class="item-name">（未再生）</div>
-            <div id="np-artist" class="item-sub"></div>
-          </div>
-        </div>
-        <div class="playback-controls">
-          <button id="pb-prev" class="icon-btn" disabled>${iconLabel('prev', '前へ')}</button>
-          <button id="pb-playpause" class="primary">${iconLabel('play', '再生')}</button>
-          <button id="pb-next" class="icon-btn">${iconLabel('next', '次へ')}</button>
-        </div>
-        <div id="pb-status" class="note"></div>
-      </section>
+    ${showPlayButton ? `
+      <button id="play-start-btn" class="icon-btn primary" aria-label="再生">${iconOnly('play')}</button>
     ` : ''}
 
     <ul class="list">
       ${tracks.length === 0
         ? '<li class="empty">曲がまだ追加されていません。</li>'
         : tracks.map((t) => `
-          <li class="list-item track-item">
+          <li class="list-item track-item${isNowPlayingRow(t, nowPlayingTrackId) ? ' now-playing' : ''}" data-track-id="${escapeHtml(String(t.id))}">
             <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
             <div class="item-main">
               <div class="item-name">${escapeHtml(t.title)}</div>
@@ -82,54 +85,22 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, u
     });
   });
 
-  if (canPlay) {
-    let started = false;
-    container.querySelector('#pb-playpause').addEventListener('click', () => {
-      if (!started) {
-        started = true;
-        actions.onStartPlayback();
-      } else {
-        actions.onTogglePlayPause();
-      }
-    });
-    container.querySelector('#pb-next').addEventListener('click', () => {
-      started = true;
-      actions.onNext();
-    });
-    container.querySelector('#pb-prev').addEventListener('click', () => actions.onPrev());
+  if (showPlayButton) {
+    container.querySelector('#play-start-btn').addEventListener('click', actions.onStartPlayback);
   }
 }
 
 /**
- * 再生パネルだけを更新する（曲が切り替わるたびに画面全体を再描画すると、
- * 通信のやり直し・ちらつきが発生するため、パネル部分のみDOMを更新する）。
+ * 曲一覧の「現在再生中」行の強調表示だけを更新する（CR-022）。
+ * 画面全体を再描画するとちらつきが発生するため、行のクラス付け替えのみ行う。
  * @param {HTMLElement} container renderPlaylistDetailを呼んだのと同じcontainer
- * @param {{track: object|null, playing: boolean, canGoBack: boolean, stopped: boolean}} state
+ * @param {string|number|null} trackId 再生中の曲ID（再生していなければnull）
  */
-export function updatePlaybackPanel(container, state) {
-  const panel = container.querySelector('#playback-panel');
-  if (!panel) return; // 0曲などでパネル自体が無い
-
-  const titleEl = panel.querySelector('#np-title');
-  const artistEl = panel.querySelector('#np-artist');
-  const artworkEl = panel.querySelector('#np-artwork');
-  const playPauseBtn = panel.querySelector('#pb-playpause');
-  const prevBtn = panel.querySelector('#pb-prev');
-  const statusEl = panel.querySelector('#pb-status');
-
-  if (state.track) {
-    titleEl.textContent = state.track.title;
-    artistEl.textContent = state.track.artist;
-    artworkEl.src = state.track.artwork || '';
-  }
-  playPauseBtn.innerHTML = iconLabel(state.playing ? 'pause' : 'play', state.playing ? '一時停止' : '再生');
-  prevBtn.disabled = !state.canGoBack;
-
-  if (state.stopped) {
-    statusEl.textContent = 'エラー：曲の再生に連続して失敗したため、停止しました。';
-  } else if (state.offlinePaused) {
-    statusEl.textContent = '通信が切れたため一時停止しました。復帰後、再生ボタンで再開できます。';
-  } else {
-    statusEl.textContent = '';
-  }
+export function updateNowPlayingTrack(container, trackId) {
+  container.querySelectorAll('.track-item.now-playing').forEach((el) => el.classList.remove('now-playing'));
+  if (trackId == null) return;
+  const target = String(trackId);
+  container.querySelectorAll('.track-item[data-track-id]').forEach((el) => {
+    if (el.dataset.trackId === target) el.classList.add('now-playing');
+  });
 }

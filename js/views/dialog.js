@@ -2,9 +2,28 @@
 // アプリのデザインに合わせた独自の見た目のダイアログを表示する）
 //
 // confirm()/prompt()と違い非同期（Promiseベース）。呼び出し側は await で結果を待つ。
+// CR-028（NFR-5.3）：連続タップ等で複数のオーバーレイが同時に開いてしまわないよう、
+// 全てのダイアログ（このファイルのshowConfirm/showMessage/showPrompt、および
+// playlist-picker-dialog.jsのshowPlaylistPicker）を1つのキューで直列化する。
+// 既に1つ開いている間の新しい呼び出しは、先のダイアログが閉じられるまで待ってから開く。
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let dialogQueue = Promise.resolve();
+
+/**
+ * ダイアログを表す非同期処理（factory）を、既存のダイアログが閉じるまで待ってから実行する。
+ * すべてのダイアログ系関数（showConfirm/showMessage/showPrompt/showPlaylistPicker）が
+ * これを経由することで、複数のオーバーレイが同時に開くことを防ぐ（CR-028）。
+ * @param {() => Promise<any>} factory ダイアログを開いて結果のPromiseを返す関数
+ * @returns {Promise<any>}
+ */
+export function enqueueDialog(factory) {
+  const result = dialogQueue.then(factory);
+  dialogQueue = result.then(() => {}, () => {});
+  return result;
 }
 
 function buildOverlay(innerHtml) {
@@ -25,7 +44,7 @@ function closeOverlay(overlay) {
  * @returns {Promise<boolean>} OKならtrue、キャンセルならfalse
  */
 export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel = 'キャンセル', danger = false }) {
-  return new Promise((resolve) => {
+  return enqueueDialog(() => new Promise((resolve) => {
     const overlay = buildOverlay(`
       ${title ? `<h2 class="dialog-title">${escapeHtml(title)}</h2>` : ''}
       <p class="dialog-message">${escapeHtml(message)}</p>
@@ -43,7 +62,7 @@ export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel =
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) finish(false);
     });
-  });
+  }));
 }
 
 /**
@@ -52,7 +71,7 @@ export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel =
  * @returns {Promise<void>}
  */
 export function showMessage({ title, message, okLabel = 'OK' }) {
-  return new Promise((resolve) => {
+  return enqueueDialog(() => new Promise((resolve) => {
     const overlay = buildOverlay(`
       ${title ? `<h2 class="dialog-title">${escapeHtml(title)}</h2>` : ''}
       <p class="dialog-message">${escapeHtml(message)}</p>
@@ -68,7 +87,7 @@ export function showMessage({ title, message, okLabel = 'OK' }) {
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) finish();
     });
-  });
+  }));
 }
 
 /**
@@ -77,7 +96,7 @@ export function showMessage({ title, message, okLabel = 'OK' }) {
  * @returns {Promise<string|null>} OK時は入力文字列、キャンセル時はnull
  */
 export function showPrompt({ title, message, defaultValue = '', confirmLabel = 'OK', cancelLabel = 'キャンセル' }) {
-  return new Promise((resolve) => {
+  return enqueueDialog(() => new Promise((resolve) => {
     const overlay = buildOverlay(`
       ${title ? `<h2 class="dialog-title">${escapeHtml(title)}</h2>` : ''}
       ${message ? `<p class="dialog-message">${escapeHtml(message)}</p>` : ''}
@@ -104,5 +123,5 @@ export function showPrompt({ title, message, defaultValue = '', confirmLabel = '
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) finish(null);
     });
-  });
+  }));
 }

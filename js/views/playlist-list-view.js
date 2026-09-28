@@ -1,6 +1,7 @@
 // フェーズ3：プレイリスト一覧画面（起動後の最初の画面、FR-2.8）
 // プレイリストの新規作成・名前変更・削除の導線もここに置く（FR-2.1, FR-2.2, FR-2.3）。
 // CR-011：改名・削除ボタンはアイコンのみ（テキストラベルなし）に変更
+// CR-029：プレイリストが0件のとき、新規作成の入力欄に自動でフォーカスする（FR-2.12）
 
 import { showConfirm, showPrompt } from './dialog.js';
 import { iconOnly } from './icons.js';
@@ -36,6 +37,10 @@ export function renderPlaylistList(container, playlists, actions) {
         `).join('')}
     </ul>
   `;
+
+  if (playlists.length === 0) {
+    container.querySelector('#new-playlist-name').focus();
+  }
 
   container.querySelector('#create-form').addEventListener('submit', (e) => {
     e.preventDefault();

@@ -54,6 +54,25 @@ export function formatAlbumForDisplay(result) {
   };
 }
 
+/** キーワードでアルバムを検索するURLを組み立てる（CR-017：統合検索でのアルバム候補用） */
+export function buildAlbumSearchUrl(term, country = 'jp', limit = 5) {
+  const trimmed = (term || '').trim();
+  if (!trimmed) throw new Error('検索キーワードを入力してください');
+  const params = new URLSearchParams({
+    term: trimmed,
+    country,
+    media: 'music',
+    entity: 'album',
+    limit: String(limit),
+  });
+  return `${SEARCH_BASE}?${params.toString()}`;
+}
+
+/** キーワードでアーティストを検索するURLを組み立てる（アーティスト候補件数を絞るためlimitを指定可能） */
+export function buildArtistSearchUrlLimited(term, country = 'jp', limit = 5) {
+  return buildArtistSearchUrl(term, country, limit);
+}
+
 /** 指定したアルバムの収録曲一覧を取得するURLを組み立てる */
 export function buildAlbumTracksUrl(collectionId, country = 'jp', limit = STAGE_LIMIT) {
   if (!collectionId) throw new Error('アルバムIDが指定されていません');
@@ -69,6 +88,29 @@ export function buildAlbumTracksUrl(collectionId, country = 'jp', limit = STAGE_
 /** アーティスト名で検索し、表示用のアーティスト一覧を返す */
 export async function fetchArtists(term, country = 'jp') {
   const res = await fetch(buildArtistSearchUrl(term, country));
+  if (!res.ok) throw new Error(`アーティスト検索に失敗しました (status: ${res.status})`);
+  const json = await res.json();
+  return (json.results || [])
+    .filter((r) => r.wrapperType === 'artist')
+    .map(formatArtistForDisplay);
+}
+
+/**
+ * キーワードでアルバムを検索し、表示用のアルバム一覧を返す（CR-017：統合検索の上位候補）。
+ * 件数は少数（既定5件）に絞る（一覧が長くなりすぎないようにするための実装上の判断）。
+ */
+export async function fetchAlbumsByTerm(term, country = 'jp', limit = 5) {
+  const res = await fetch(buildAlbumSearchUrl(term, country, limit));
+  if (!res.ok) throw new Error(`アルバム検索に失敗しました (status: ${res.status})`);
+  const json = await res.json();
+  return filterAlbums(json.results).map(formatAlbumForDisplay);
+}
+
+/**
+ * キーワードでアーティストを検索し、件数を絞った表示用のアーティスト一覧を返す（CR-017：統合検索の上位候補）。
+ */
+export async function fetchArtistsLimited(term, country = 'jp', limit = 5) {
+  const res = await fetch(buildArtistSearchUrlLimited(term, country, limit));
   if (!res.ok) throw new Error(`アーティスト検索に失敗しました (status: ${res.status})`);
   const json = await res.json();
   return (json.results || [])
