@@ -13,6 +13,7 @@
 import { showConfirm, showPrompt } from './dialog.js';
 import { sortTracksByArtist } from '../playlist-sort.js';
 import { iconOnly } from './icons.js';
+import { largeArtworkUrl } from '../artwork-url.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -58,7 +59,7 @@ export function renderPlaylistDetail(container, {
 
     <div class="hero">
       ${heroArtwork
-        ? `<img src="${escapeHtml(heroArtwork)}" alt="" class="hero-artwork">`
+        ? `<img src="${escapeHtml(largeArtworkUrl(heroArtwork))}" alt="" class="hero-artwork">`
         : `<div class="hero-artwork hero-artwork-placeholder">${iconOnly('disc')}</div>`}
       <h1 class="hero-name">${escapeHtml(playlist.name)}</h1>
       ${showPlayButton ? `

@@ -166,6 +166,17 @@ button.primary {
 .item-name { font-weight: 600; }
 .item-sub { color: var(--muted); font-size: 0.85rem; }
 
+/* フェーズ21（不具合修正）：.list-item-mainは既定で縦並び（プレイリスト名＋曲数等）だが、
+   種別アイコン・ジャケット・番号とタイトルを横並びで見せたい行（曲・アーティスト・アルバムの
+   各行）ではこちらを使い、横並びに上書きする（CR-031/032/033/034） */
+.track-play,
+.result-artist-open,
+.result-album-open {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
 .icon-btn {
   border: none;
   border-radius: 8px;

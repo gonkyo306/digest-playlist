@@ -14,6 +14,7 @@ import {
   bindTrackRowEvents, bindArtistRowEvents, bindAlbumRowEvents,
 } from './track-row.js';
 import { iconLabel, iconOnly } from './icons.js';
+import { largeArtworkUrl } from '../artwork-url.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -285,7 +286,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         ${bulkAddButtonHtml(albumTrackSelectedIds.size)}
       </div>
       <div class="hero">
-        <img src="${escapeHtml(selectedAlbum.artwork)}" alt="" class="hero-artwork">
+        <img src="${escapeHtml(largeArtworkUrl(selectedAlbum.artwork))}" alt="" class="hero-artwork">
         <h2 class="hero-name">${escapeHtml(selectedAlbum.name)}</h2>
         <div class="item-sub">${escapeHtml(selectedAlbum.artist)}</div>
         ${
