@@ -1,10 +1,8 @@
 // フェーズ3：プレイリスト一覧画面（起動後の最初の画面、FR-2.8）
-// プレイリストの新規作成・名前変更・削除の導線もここに置く（FR-2.1, FR-2.2, FR-2.3）。
-// CR-011：改名・削除ボタンはアイコンのみ（テキストラベルなし）に変更
+// プレイリストの新規作成の導線をここに置く（FR-2.1）。
 // CR-029：プレイリストが0件のとき、新規作成の入力欄に自動でフォーカスする（FR-2.12）
-
-import { showConfirm, showPrompt } from './dialog.js';
-import { iconOnly } from './icons.js';
+// フェーズ21（CR-035）：名前変更・削除は、この一覧の各行からは行わず、詳細画面の右上で行う
+// （FR-2.2, FR-2.3）。この画面の各行は、プレイリストを開くタップ操作のみを持つ（FR-2.9）。
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,7 +11,7 @@ function escapeHtml(str) {
 /**
  * @param {HTMLElement} container
  * @param {Array<object>} playlists
- * @param {{onOpen, onCreate, onRename, onDelete}} actions
+ * @param {{onOpen, onCreate}} actions
  */
 export function renderPlaylistList(container, playlists, actions) {
   container.innerHTML = `
@@ -31,8 +29,6 @@ export function renderPlaylistList(container, playlists, actions) {
               <span class="item-name">${escapeHtml(m.name)}</span>
               <span class="item-sub">${m.trackIds.length}曲</span>
             </button>
-            <button class="icon-btn playlist-rename" data-id="${escapeHtml(m.id)}" aria-label="名前を変更">${iconOnly('edit')}</button>
-            <button class="icon-btn danger playlist-delete" data-id="${escapeHtml(m.id)}" aria-label="削除">${iconOnly('remove')}</button>
           </li>
         `).join('')}
     </ul>
@@ -52,29 +48,5 @@ export function renderPlaylistList(container, playlists, actions) {
 
   container.querySelectorAll('.playlist-open').forEach((btn) => {
     btn.addEventListener('click', () => actions.onOpen(btn.dataset.id));
-  });
-  container.querySelectorAll('.playlist-rename').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const playlist = playlists.find((m) => m.id === btn.dataset.id);
-      const newName = await showPrompt({
-        title: '名前を変更',
-        defaultValue: playlist ? playlist.name : '',
-        confirmLabel: '変更する',
-      });
-      if (newName !== null && newName.trim()) actions.onRename(btn.dataset.id, newName.trim());
-    });
-  });
-  container.querySelectorAll('.playlist-delete').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const playlist = playlists.find((m) => m.id === btn.dataset.id);
-      const label = playlist ? `「${playlist.name}」` : 'このプレイリスト';
-      const ok = await showConfirm({
-        title: 'プレイリストを削除',
-        message: `${label}を削除しますか？この操作は取り消せません。`,
-        confirmLabel: '削除する',
-        danger: true,
-      });
-      if (ok) actions.onDelete(btn.dataset.id);
-    });
   });
 }

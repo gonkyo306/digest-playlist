@@ -23,6 +23,17 @@ export function buildInitialOrder(trackCount) {
 }
 
 /**
+ * 指定した曲を先頭にした再生順を作る（CR-032：曲一覧の行タップで、その曲から再生を始める）。
+ * 2曲目以降は、残りの曲をシャッフルした順になる。
+ * @param {number} trackCount
+ * @param {number} startIndex 先頭に置く曲のインデックス
+ */
+export function buildOrderStartingAt(trackCount, startIndex) {
+  const rest = Array.from({ length: trackCount }, (_, i) => i).filter((i) => i !== startIndex);
+  return [startIndex, ...shuffle(rest)];
+}
+
+/**
  * 一巡した後の再シャッフルを行う。曲が2曲以上ある場合、直前に再生した曲を
  * 新しい順番の先頭に置かない（FR-4.4）。1曲のみの場合はそのまま返す。
  * @param {number} trackCount

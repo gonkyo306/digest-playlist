@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildInitialOrder, reshuffleAvoidingRepeat, shuffle } from '../js/playback-order.js';
+import { buildInitialOrder, buildOrderStartingAt, reshuffleAvoidingRepeat, shuffle } from '../js/playback-order.js';
 
 test('shuffle: 元の配列を変更せず、要素の集合は変わらない', () => {
   const original = [0, 1, 2, 3, 4];
@@ -33,5 +33,19 @@ test('reshuffleAvoidingRepeat: 曲が2曲以上のとき、直前の曲が先頭
 
 test('reshuffleAvoidingRepeat: 1曲のみの場合はそのまま返す（直前の曲を除外する対象がない）', () => {
   const order = reshuffleAvoidingRepeat(1, 0);
+  assert.deepEqual(order, [0]);
+});
+
+test('buildOrderStartingAt: 指定した曲が先頭になり、残りは重複なく並ぶ (CR-032)', () => {
+  for (let i = 0; i < 20; i++) {
+    const order = buildOrderStartingAt(5, 2);
+    assert.equal(order[0], 2, '先頭は指定したインデックス');
+    assert.equal(order.length, 5);
+    assert.deepEqual([...order].sort((a, b) => a - b), [0, 1, 2, 3, 4], '重複・欠落なく全曲含む');
+  }
+});
+
+test('buildOrderStartingAt: 1曲のみの場合はその曲だけの配列になる', () => {
+  const order = buildOrderStartingAt(1, 0);
   assert.deepEqual(order, [0]);
 });

@@ -195,8 +195,63 @@ button.primary {
   flex-shrink: 0;
 }
 
-/* --- フェーズ14（CR-016）：再生前は「再生」ボタンのみ。再生中の操作はミニプレイヤーに集約 --- */
-#play-start-btn { margin: 8px 0 16px; }
+/* --- フェーズ21（CR-035）：詳細画面の右上に名前変更・削除ボタンを配置 --- */
+.detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.detail-topbar-actions { display: flex; gap: 8px; }
+
+/* --- フェーズ21（CR-034）：Apple Music風のヘッダー（大きめジャケット・名前・ピル型再生ボタン） --- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  margin: 12px 0 20px;
+}
+.hero-artwork {
+  width: 180px;
+  height: 180px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--placeholder-bg);
+}
+.hero-artwork-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.hero-artwork-placeholder svg { width: 64px; height: 64px; }
+.hero-name {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pill-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 28px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-height: 44px;
+}
+/* CR-034：シャッフルボタンは完全な円形にする */
+.shuffle-btn {
+  border-radius: 50%;
+}
 
 /* --- フェーズ14（CR-022）：曲一覧の「現在再生中」の行を強調表示 --- */
 .track-item.now-playing {
@@ -372,29 +427,9 @@ button.primary {
 }
 
 /* --- フェーズ10・CR-012：アルバムの全曲一時再生（FR-1.11） --- */
-.album-play-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 0 16px;
-}
 .shuffle-btn.active { background: var(--accent); color: var(--accent-fg); }
 
-/* --- CR-013：段階検索のアルバム情報欄・簡易曲一覧 --- */
-.album-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 12px 0 16px;
-}
-.artwork-lg {
-  width: 64px;
-  height: 64px;
-  border-radius: 8px;
-  object-fit: cover;
-  background: var(--placeholder-bg);
-  flex-shrink: 0;
-}
+/* --- CR-013：段階検索の簡易曲一覧（アルバム情報欄自体はフェーズ21でheroレイアウトに統合） --- */
 .track-item-compact .track-number {
   color: var(--muted);
   min-width: 1.8em;

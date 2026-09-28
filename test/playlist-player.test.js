@@ -104,6 +104,22 @@ test('start: 1曲目が再生され、履歴・表示反映(onTrackChange)が行
   assert.equal(player.currentTrack().id, changes[0].id);
 });
 
+test('start(startTrackIndex): 指定した曲から再生が始まる (CR-032, FR-2.13)', async () => {
+  const tracks = makeTracks(5);
+  const { player, changes } = createPlayer(tracks);
+  await player.start(3);
+  assert.equal(player.playing, true);
+  assert.equal(changes.length, 1);
+  assert.equal(player.currentTrack().id, tracks[3].id);
+});
+
+test('start(startTrackIndex): 2曲目以降は残りの曲がすべて含まれる (CR-032, FR-2.13)', async () => {
+  const tracks = makeTracks(5);
+  const { player } = createPlayer(tracks);
+  await player.start(3);
+  assert.deepEqual([...player.order].sort((a, b) => a - b), [0, 1, 2, 3, 4]);
+});
+
 test('クロスフェード無効時、ended イベントで次の曲へ進む (FR-4.6)', async () => {
   const tracks = makeTracks(3);
   const { player, createdAudios, changes } = createPlayer(tracks, { crossfadeSeconds: 0 });

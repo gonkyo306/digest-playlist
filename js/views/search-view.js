@@ -239,7 +239,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         ${
           drillAlbums.length === 0
             ? '<li class="empty">アルバムが見つかりませんでした。</li>'
-            : drillAlbums.map((a, i) => albumRowHtml(a, i)).join('')
+            : drillAlbums.map((a, i) => albumRowHtml(a, i, { showTypeIcon: false })).join('')
         }
       </ul>
     `;
@@ -284,23 +284,21 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         ${backButtonHtml('back-from-tracks', backLabel)}
         ${bulkAddButtonHtml(albumTrackSelectedIds.size)}
       </div>
-      <div class="album-header">
-        <img src="${escapeHtml(selectedAlbum.artwork)}" alt="" class="artwork-lg">
-        <div class="item-main">
-          <div class="item-name">${escapeHtml(selectedAlbum.name)}</div>
-          <div class="item-sub">${escapeHtml(selectedAlbum.artist)}</div>
-        </div>
+      <div class="hero">
+        <img src="${escapeHtml(selectedAlbum.artwork)}" alt="" class="hero-artwork">
+        <h2 class="hero-name">${escapeHtml(selectedAlbum.name)}</h2>
+        <div class="item-sub">${escapeHtml(selectedAlbum.artist)}</div>
+        ${
+          canPlayAlbum
+            ? `
+          <div class="hero-actions">
+            <button type="button" id="album-shuffle-btn" class="icon-btn shuffle-btn" aria-label="シャッフル" aria-pressed="false">${iconOnly('shuffle')}</button>
+            <button type="button" id="album-play-btn" class="pill-play-btn" aria-label="アルバムを全曲再生">${iconOnly('play')}<span>再生</span></button>
+          </div>
+        `
+            : ''
+        }
       </div>
-      ${
-        canPlayAlbum
-          ? `
-        <div class="album-play-bar">
-          <button type="button" id="album-shuffle-btn" class="icon-btn shuffle-btn" aria-label="シャッフル" aria-pressed="false">${iconOnly('shuffle')}</button>
-          <button type="button" id="album-play-btn" class="icon-btn primary" aria-label="アルバムを全曲再生">${iconOnly('play')}</button>
-        </div>
-      `
-          : ''
-      }
       <ul class="list" id="album-track-results"></ul>
     `;
     container.querySelector('#back-from-tracks').addEventListener('click', backTarget);

@@ -5,8 +5,12 @@
 // フェーズ14（CR-016）：インライン再生パネルを廃止。再生前は「再生」ボタンのみを表示し、
 // 再生後の操作（一時停止・前へ・次へ）はミニプレイヤーに集約する（js/app.js側）。
 // フェーズ14（CR-022）：現在再生中の曲の行を強調表示する（updateNowPlayingTrack）。
+// フェーズ21（CR-032）：曲の行をタップすると、その曲から再生を始める（専用アイコンは追加しない）。
+// フェーズ21（CR-034）：ヘッダーをApple Music風（大きめジャケット・名前・ピル型再生ボタンを縦並び）に変更。
+//   プレイリスト自体にはジャケットが無いため、先頭の曲のジャケットを代表画像として使う。
+// フェーズ21（CR-035）：名前変更・削除ボタンを、一覧画面の各行からこの画面の右上に移設。
 
-import { showConfirm } from './dialog.js';
+import { showConfirm, showPrompt } from './dialog.js';
 import { sortTracksByArtist } from '../playlist-sort.js';
 import { iconOnly } from './icons.js';
 
@@ -29,7 +33,9 @@ export function isNowPlayingRow(track, nowPlayingTrackId) {
  * @param {HTMLElement} container
  * @param {{playlist: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string,
  *   isCurrentlyPlaying?: boolean, nowPlayingTrackId?: string|number|null}} data
- * @param {{onBack, onRemoveTrack, onStartPlayback}} actions
+ *   tracksは取得済みの順序（playlist.trackIdsの順、取得できなかった曲を除く）のまま渡すこと。
+ *   先頭の曲（tracks[0]）のジャケットを、代表画像として使う（CR-034）。
+ * @param {{onBack, onRemoveTrack, onStartPlayback, onTrackTap, onRename, onDelete}} actions
  */
 export function renderPlaylistDetail(container, {
   playlist, tracks: rawTracks, unavailableIds, fetchError, isCurrentlyPlaying = false, nowPlayingTrackId = null,
@@ -39,10 +45,27 @@ export function renderPlaylistDetail(container, {
   const tracks = sortTracksByArtist(rawTracks);
   // このプレイリストが今まさに再生中なら、以降の操作はミニプレイヤーに任せ「再生」ボタンは表示しない
   const showPlayButton = canPlay && !isCurrentlyPlaying;
+  const heroArtwork = rawTracks[0]?.artwork || '';
 
   container.innerHTML = `
-    <button id="back-btn" class="icon-btn" aria-label="一覧へ戻る">${iconOnly('back')}</button>
-    <h1>${escapeHtml(playlist.name)}</h1>
+    <div class="detail-topbar">
+      <button id="back-btn" class="icon-btn" aria-label="一覧へ戻る">${iconOnly('back')}</button>
+      <div class="detail-topbar-actions">
+        <button id="rename-btn" class="icon-btn" aria-label="名前を変更">${iconOnly('edit')}</button>
+        <button id="delete-btn" class="icon-btn danger" aria-label="削除">${iconOnly('remove')}</button>
+      </div>
+    </div>
+
+    <div class="hero">
+      ${heroArtwork
+        ? `<img src="${escapeHtml(heroArtwork)}" alt="" class="hero-artwork">`
+        : `<div class="hero-artwork hero-artwork-placeholder">${iconOnly('disc')}</div>`}
+      <h1 class="hero-name">${escapeHtml(playlist.name)}</h1>
+      ${showPlayButton ? `
+        <button id="play-start-btn" class="pill-play-btn" aria-label="再生">${iconOnly('play')}<span>再生</span></button>
+      ` : ''}
+    </div>
+
     ${fetchError
       ? `<p class="error-banner">通信エラー：曲情報を取得できませんでした（${escapeHtml(fetchError)}）。電波の良い場所で再度お試しください。</p>`
       : `<p class="note">
@@ -50,20 +73,18 @@ export function renderPlaylistDetail(container, {
           ${unavailableIds.length ? `（うち${unavailableIds.length}曲は取得できませんでした）` : ''}
         </p>`}
 
-    ${showPlayButton ? `
-      <button id="play-start-btn" class="icon-btn primary" aria-label="再生">${iconOnly('play')}</button>
-    ` : ''}
-
     <ul class="list">
       ${tracks.length === 0
         ? '<li class="empty">曲がまだ追加されていません。</li>'
         : tracks.map((t) => `
           <li class="list-item track-item${isNowPlayingRow(t, nowPlayingTrackId) ? ' now-playing' : ''}" data-track-id="${escapeHtml(String(t.id))}">
-            <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
-            <div class="item-main">
-              <div class="item-name">${escapeHtml(t.title)}</div>
-              <div class="item-sub">${escapeHtml(t.artist)}</div>
-            </div>
+            <button type="button" class="list-item-main track-play">
+              <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
+              <div class="item-main">
+                <div class="item-name">${escapeHtml(t.title)}</div>
+                <div class="item-sub">${escapeHtml(t.artist)}</div>
+              </div>
+            </button>
             <button class="icon-btn danger track-remove" aria-label="削除">${iconOnly('remove')}</button>
           </li>
         `).join('')}
@@ -72,9 +93,29 @@ export function renderPlaylistDetail(container, {
 
   container.querySelector('#back-btn').addEventListener('click', actions.onBack);
 
+  container.querySelector('#rename-btn').addEventListener('click', async () => {
+    const newName = await showPrompt({
+      title: '名前を変更',
+      defaultValue: playlist.name,
+      confirmLabel: '変更する',
+    });
+    if (newName !== null && newName.trim()) actions.onRename(newName.trim());
+  });
+  container.querySelector('#delete-btn').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      title: 'プレイリストを削除',
+      message: `「${playlist.name}」を削除しますか？この操作は取り消せません。`,
+      confirmLabel: '削除する',
+      danger: true,
+    });
+    if (ok) actions.onDelete();
+  });
+
   container.querySelectorAll('.track-item').forEach((li, i) => {
     const track = tracks[i];
-    li.querySelector('.track-remove').addEventListener('click', async () => {
+    li.querySelector('.track-play').addEventListener('click', () => actions.onTrackTap(track.id));
+    li.querySelector('.track-remove').addEventListener('click', async (e) => {
+      e.stopPropagation();
       const ok = await showConfirm({
         title: '曲を削除',
         message: `「${track.title}」をプレイリストから削除しますか？`,

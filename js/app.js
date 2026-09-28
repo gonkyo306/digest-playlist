@@ -155,7 +155,15 @@ function renderMiniPlayerBar() {
 
 function renderTabBarUi() {
   renderTabBar(tabBarEl, activeTab, (tab) => {
-    if (tab === activeTab) return;
+    if (tab === activeTab) {
+      // 既に表示中のタブの再タップ：そのタブのトップ画面へリセットする（CR-030、FR-6.2）
+      if (tab === 'playlist') {
+        showPlaylistList();
+      } else {
+        mountSearchTab(); // 検索ビューを作り直し、検索語・検索結果も含めて完全に空の状態に戻す（FR-1.18）
+      }
+      return;
+    }
     activeTab = tab;
     applyTabVisibility();
   });
@@ -182,17 +190,6 @@ async function showPlaylistList() {
     },
     onCreate: async (name) => {
       await savePlaylist(createPlaylist(name));
-      showPlaylistList();
-    },
-    onRename: async (id, newName) => {
-      const playlist = await getPlaylist(id);
-      if (!playlist) return showPlaylistList();
-      await savePlaylist(renamePlaylist(playlist, newName));
-      showPlaylistList();
-    },
-    onDelete: async (id) => {
-      if (playbackContext?.type === 'playlist' && playbackContext.playlistId === id) disposeCurrentPlayer();
-      await deletePlaylist(id);
       showPlaylistList();
     },
   });
@@ -249,11 +246,27 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       // 曲情報は取得済みのため、再取得はしない。
       renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
+    onTrackTap: (trackId) => {
+      // タップした曲を1曲目にして再生を始める（CR-032、FR-2.13）
+      const startIndex = available.findIndex((t) => t.id === trackId);
+      startPlaylistPlayback(playlistId, available, startIndex === -1 ? undefined : startIndex);
+      renderDetailScreen(playlist, available, unavailableIds, fetchError);
+    },
+    onRename: async (newName) => {
+      await savePlaylist(renamePlaylist(playlist, newName));
+      showPlaylistDetail(playlistId);
+    },
+    onDelete: async () => {
+      if (playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) disposeCurrentPlayer();
+      await deletePlaylist(playlistId);
+      playlistView = { screen: 'list' };
+      showPlaylistList();
+    },
   });
   renderMiniPlayerBar();
 }
 
-function startPlaylistPlayback(playlistId, tracks) {
+function startPlaylistPlayback(playlistId, tracks, startIndex) {
   disposeCurrentPlayer();
   currentPlayer = new PlaylistPlayer(tracks, {
     onTrackChange: (track) => {
@@ -264,7 +277,7 @@ function startPlaylistPlayback(playlistId, tracks) {
     onFailureStop: () => reflectPlaybackState(),
   });
   playbackContext = { type: 'playlist', playlistId };
-  currentPlayer.start();
+  currentPlayer.start(startIndex);
 }
 
 // --- 検索タブ（FR-6.1） ---

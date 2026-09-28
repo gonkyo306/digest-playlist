@@ -16,7 +16,7 @@
 //   FR-4.11（再生中の曲情報を表示に反映）→ onTrackChange コールバック
 //   FR-4.12（ロック画面/通知からの操作）→ Media Session APIのセットアップ
 
-import { buildInitialOrder, reshuffleAvoidingRepeat } from './playback-order.js';
+import { buildInitialOrder, buildOrderStartingAt, reshuffleAvoidingRepeat } from './playback-order.js';
 import { PlaybackHistory } from './playback-history.js';
 import { ConsecutiveFailureTracker } from './failure-tracker.js';
 
@@ -109,10 +109,18 @@ export class PlaylistPlayer {
     });
   }
 
-  /** 最初の曲から再生を開始する。0曲の場合は何もしない（FR-4.14） */
-  async start() {
+  /**
+   * 再生を開始する。0曲の場合は何もしない（FR-4.14）。
+   * @param {number} [startTrackIndex] 指定すると、その曲（tracks配列でのインデックス）を1曲目にして
+   *   再生を始める（CR-032）。2曲目以降は残りの曲をシャッフルした順になる。省略時は全曲シャッフルの
+   *   先頭から始まる（従来通り）
+   */
+  async start(startTrackIndex) {
     if (this.isEmpty) return;
     this.stopped = false;
+    if (startTrackIndex != null) {
+      this.order = buildOrderStartingAt(this.tracks.length, startTrackIndex);
+    }
     this.pos = 0;
     await this._playAt(this.order[this.pos], { isFirst: true, fromHistory: false });
   }
