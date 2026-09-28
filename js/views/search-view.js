@@ -85,7 +85,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   function renderResultsStep() {
     mode = 'results';
     container.innerHTML = `
-      <div class="search-header">
+      <div class="screen-header">
         <h1>曲を検索</h1>
         ${bulkAddButtonHtml(selectedIds.size)}
       </div>
@@ -108,7 +108,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     bindBulkAddButton();
 
     function renderResultsList() {
-      const headerEl = container.querySelector('.search-header');
+      const headerEl = container.querySelector('.screen-header');
       headerEl.innerHTML = `<h1>曲を検索</h1>${bulkAddButtonHtml(selectedIds.size)}`;
       bindBulkAddButton();
 
@@ -135,7 +135,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         onCheckToggle: (track, checked) => {
           if (checked) selectedIds.add(track.id);
           else selectedIds.delete(track.id);
-          const headerEl2 = container.querySelector('.search-header');
+          const headerEl2 = container.querySelector('.screen-header');
           headerEl2.innerHTML = `<h1>曲を検索</h1>${bulkAddButtonHtml(selectedIds.size)}`;
           bindBulkAddButton();
         },
@@ -281,7 +281,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     const backLabel = previousModeForTracks === 'albums' ? 'アルバム一覧へ戻る' : '検索結果へ戻る';
 
     container.innerHTML = `
-      <div class="search-header">
+      <div class="screen-header">
         ${backButtonHtml('back-from-tracks', backLabel)}
         ${bulkAddButtonHtml(albumTrackSelectedIds.size)}
       </div>
@@ -335,7 +335,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       onCheckToggle: (track, checked) => {
         if (checked) albumTrackSelectedIds.add(track.id);
         else albumTrackSelectedIds.delete(track.id);
-        const headerEl = container.querySelector('.search-header');
+        const headerEl = container.querySelector('.screen-header');
         headerEl.innerHTML = `${backButtonHtml('back-from-tracks', backLabel)}${bulkAddButtonHtml(albumTrackSelectedIds.size)}`;
         container.querySelector('#back-from-tracks').addEventListener('click', backTarget);
         bindBulkAddButton();

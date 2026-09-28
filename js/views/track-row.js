@@ -5,6 +5,8 @@
 // CR-026：行の種別（曲／アーティスト／アルバム）をアイコンで示す。
 // フェーズ21（CR-033）：曲の試聴は、行タップ（チェックボックス部分を除く）で開始／停止する。
 // 試聴専用のアイコンは表示しない。
+// フェーズ22（仕様見直し）：チェックボックスをタップしても試聴が始まらないことが伝わるよう、
+// チェックボックスを試聴可能な行（カード）の外に出し、独立した見た目にする。
 
 import { typeIcon } from './icons.js';
 
@@ -21,11 +23,11 @@ function escapeHtml(str) {
 export function trackRowHtml(track, index, options = {}) {
   const { checked = false } = options;
   return `
-    <li class="list-item track-item" data-index="${index}">
+    <li class="track-row track-item" data-index="${index}">
       <input type="checkbox" class="track-checkbox" data-index="${index}"
         ${checked ? 'checked' : ''}
         aria-label="一括追加する曲として選択">
-      <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
+      <button type="button" class="list-item track-play" data-index="${index}" aria-label="試聴">
         ${typeIcon('track')}
         <img src="${escapeHtml(track.artwork)}" alt="" class="artwork-sm">
         <div class="item-main">
@@ -47,10 +49,10 @@ export function trackRowHtml(track, index, options = {}) {
 export function compactTrackRowHtml(track, index, options = {}) {
   const { checked = false } = options;
   return `
-    <li class="list-item track-item track-item-compact" data-index="${index}">
+    <li class="track-row track-item track-item-compact" data-index="${index}">
       <input type="checkbox" class="track-checkbox" data-index="${index}"
         ${checked ? 'checked' : ''} aria-label="一括追加する曲として選択">
-      <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
+      <button type="button" class="list-item track-play" data-index="${index}" aria-label="試聴">
         <span class="track-number">${index + 1}.</span>
         <div class="item-main">
           <div class="item-name">${escapeHtml(track.title)}</div>

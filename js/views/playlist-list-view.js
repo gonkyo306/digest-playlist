@@ -3,6 +3,8 @@
 // CR-029：プレイリストが0件のとき、新規作成の入力欄に自動でフォーカスする（FR-2.12）
 // フェーズ21（CR-035）：名前変更・削除は、この一覧の各行からは行わず、詳細画面の右上で行う
 // （FR-2.2, FR-2.3）。この画面の各行は、プレイリストを開くタップ操作のみを持つ（FR-2.9）。
+// フェーズ22（仕様見直し・2026-09-28）：見出しをscreen-headerクラスで囲み、検索画面の見出しと
+// 高さを揃えることで、直下の入力欄（新規作成／検索語）の表示位置がタブ間でずれないようにする。
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -15,7 +17,9 @@ function escapeHtml(str) {
  */
 export function renderPlaylistList(container, playlists, actions) {
   container.innerHTML = `
-    <h1>プレイリスト一覧</h1>
+    <div class="screen-header">
+      <h1>プレイリスト一覧</h1>
+    </div>
     <form id="create-form" class="inline-form">
       <input type="text" id="new-playlist-name" placeholder="新しいプレイリスト名" required maxlength="50">
       <button type="submit">作成</button>

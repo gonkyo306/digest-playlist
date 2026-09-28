@@ -4,11 +4,12 @@
 // CR-011：削除・戻るボタンはアイコンのみ（テキストラベルなし）に変更
 // フェーズ14（CR-016）：インライン再生パネルを廃止。再生前は「再生」ボタンのみを表示し、
 // 再生後の操作（一時停止・前へ・次へ）はミニプレイヤーに集約する（js/app.js側）。
-// フェーズ14（CR-022）：現在再生中の曲の行を強調表示する（updateNowPlayingTrack）。
 // フェーズ21（CR-032）：曲の行をタップすると、その曲から再生を始める（専用アイコンは追加しない）。
 // フェーズ21（CR-034）：ヘッダーをApple Music風（大きめジャケット・名前・ピル型再生ボタンを縦並び）に変更。
 //   プレイリスト自体にはジャケットが無いため、先頭の曲のジャケットを代表画像として使う。
 // フェーズ21（CR-035）：名前変更・削除ボタンを、一覧画面の各行からこの画面の右上に移設。
+// フェーズ22（仕様見直し・2026-09-28）：再生中の曲のハイライト表示（CR-022）を廃止。
+//   ミニプレイヤーで再生中の曲を確認できるため、曲一覧側の強調表示は不要と判断。
 
 import { showConfirm, showPrompt } from './dialog.js';
 import { sortTracksByArtist } from '../playlist-sort.js';
@@ -20,26 +21,15 @@ function escapeHtml(str) {
 }
 
 /**
- * 曲一覧の1行が「現在再生中」として強調表示の対象かどうかを判定する（CR-022）。
- * IDの型（文字列/数値）が揺れても一致判定できるよう、文字列化して比較する。
- * @param {{id: string|number}} track
- * @param {string|number|null} nowPlayingTrackId
- */
-export function isNowPlayingRow(track, nowPlayingTrackId) {
-  if (nowPlayingTrackId == null || !track) return false;
-  return String(track.id) === String(nowPlayingTrackId);
-}
-
-/**
  * @param {HTMLElement} container
  * @param {{playlist: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string,
- *   isCurrentlyPlaying?: boolean, nowPlayingTrackId?: string|number|null}} data
+ *   isCurrentlyPlaying?: boolean}} data
  *   tracksは取得済みの順序（playlist.trackIdsの順、取得できなかった曲を除く）のまま渡すこと。
  *   先頭の曲（tracks[0]）のジャケットを、代表画像として使う（CR-034）。
  * @param {{onBack, onRemoveTrack, onStartPlayback, onTrackTap, onRename, onDelete}} actions
  */
 export function renderPlaylistDetail(container, {
-  playlist, tracks: rawTracks, unavailableIds, fetchError, isCurrentlyPlaying = false, nowPlayingTrackId = null,
+  playlist, tracks: rawTracks, unavailableIds, fetchError, isCurrentlyPlaying = false,
 }, actions) {
   const canPlay = rawTracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
   // 表示順のみアーティスト名順に並び替える（FR-2.11）。再生順（順序はtrackIds/rawTracks側）には影響しない。
@@ -78,7 +68,7 @@ export function renderPlaylistDetail(container, {
       ${tracks.length === 0
         ? '<li class="empty">曲がまだ追加されていません。</li>'
         : tracks.map((t) => `
-          <li class="list-item track-item${isNowPlayingRow(t, nowPlayingTrackId) ? ' now-playing' : ''}" data-track-id="${escapeHtml(String(t.id))}">
+          <li class="list-item track-item">
             <button type="button" class="list-item-main track-play">
               <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
               <div class="item-main">
@@ -130,19 +120,4 @@ export function renderPlaylistDetail(container, {
   if (showPlayButton) {
     container.querySelector('#play-start-btn').addEventListener('click', actions.onStartPlayback);
   }
-}
-
-/**
- * 曲一覧の「現在再生中」行の強調表示だけを更新する（CR-022）。
- * 画面全体を再描画するとちらつきが発生するため、行のクラス付け替えのみ行う。
- * @param {HTMLElement} container renderPlaylistDetailを呼んだのと同じcontainer
- * @param {string|number|null} trackId 再生中の曲ID（再生していなければnull）
- */
-export function updateNowPlayingTrack(container, trackId) {
-  container.querySelectorAll('.track-item.now-playing').forEach((el) => el.classList.remove('now-playing'));
-  if (trackId == null) return;
-  const target = String(trackId);
-  container.querySelectorAll('.track-item[data-track-id]').forEach((el) => {
-    if (el.dataset.trackId === target) el.classList.add('now-playing');
-  });
 }

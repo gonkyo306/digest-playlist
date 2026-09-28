@@ -167,14 +167,28 @@ button.primary {
 .item-sub { color: var(--muted); font-size: 0.85rem; }
 
 /* フェーズ21（不具合修正）：.list-item-mainは既定で縦並び（プレイリスト名＋曲数等）だが、
-   種別アイコン・ジャケット・番号とタイトルを横並びで見せたい行（曲・アーティスト・アルバムの
-   各行）ではこちらを使い、横並びに上書きする（CR-031/032/033/034） */
+   種別アイコン・ジャケット・番号とタイトルを横並びで見せたい行（アーティスト・アルバムの各行）
+   ではこちらを使い、横並びに上書きする（CR-031/034）。.track-playはフェーズ22で.list-item
+   （既定で横並び）に変更したため、このルールは主にresult-artist-open/result-album-open向け */
 .track-play,
 .result-artist-open,
 .result-album-open {
   flex-direction: row;
   align-items: center;
   gap: 8px;
+}
+
+/* フェーズ22（仕様見直し）：検索結果のチェックボックスは、試聴できる行（カード）の外に置き、
+   タップしても再生に影響しないことが見た目で伝わるようにする */
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.track-row .list-item {
+  flex: 1;
+  margin-bottom: 0;
 }
 
 .icon-btn {
@@ -263,13 +277,6 @@ button.primary {
 .shuffle-btn {
   border-radius: 50%;
 }
-
-/* --- フェーズ14（CR-022）：曲一覧の「現在再生中」の行を強調表示 --- */
-.track-item.now-playing {
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-.track-item.now-playing .item-sub { color: var(--accent-fg); opacity: 0.85; }
 
 /* --- フェーズ5：確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） --- */
 .dialog-overlay {
@@ -403,15 +410,17 @@ button.primary {
 }
 .mini-player-controls { display: flex; gap: 4px; flex-shrink: 0; }
 
-/* --- フェーズ16（CR-017）：検索結果ヘッダー。右側に一括追加ボタン（CR-021/024）を置く --- */
-.search-header {
+/* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に一括追加ボタン
+   （CR-021/024）を置く。min-heightで高さを揃え、プレイリスト一覧画面（フェーズ22で
+   同じクラスを適用）と検索画面とで、直下の入力欄の表示位置がずれないようにする --- */
+.screen-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   min-height: 44px;
 }
-.search-header h1 { margin: 0; }
+.screen-header h1 { margin: 0; }
 .bulk-add-btn { flex-shrink: 0; }
 
 /* --- フェーズ16（CR-026）：検索結果行の種別アイコン（曲／アーティスト／アルバム） --- */
@@ -423,18 +432,16 @@ button.primary {
   flex-shrink: 0;
 }
 
-/* --- フェーズ18（CR-025）：直前に追加したプレイリストへのショートカット --- */
-.playlist-picker-shortcut {
-  display: block;
-  width: 100%;
-  background: var(--accent);
-  color: var(--accent-fg);
-  border: none;
-  border-radius: 10px;
-  padding: 12px;
-  margin-bottom: 12px;
-  text-align: left;
+/* --- フェーズ22（仕様見直し）：追加先選択の一覧で、前回追加したプレイリストに付ける小さな案内ラベル --- */
+.picker-last-used-badge {
+  display: inline-block;
+  font-size: 0.7rem;
   font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-bottom: 2px;
 }
 
 /* --- フェーズ10・CR-012：アルバムの全曲一時再生（FR-1.11） --- */
@@ -446,6 +453,11 @@ button.primary {
   min-width: 1.8em;
   text-align: right;
   flex-shrink: 0;
+}
+/* フェーズ22（仕様見直し）：ジャケットが無く行が低くなっていたため、ジャケット画像付きの行
+   （曲名＋アーティスト名の2行分、border-box込みで約64px）と高さを揃える */
+.track-item-compact .track-play {
+  min-height: 64px;
 }
 
 /* --- フェーズ16（CR-018）：続きがあることを示す、視認できる下矢印のガイド表示 --- */

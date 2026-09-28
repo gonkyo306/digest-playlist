@@ -1,5 +1,5 @@
 // 最小限のキャッシュのみ。オフライン再生自体は対象外（1-3）。
-const CACHE_NAME = 'digest-playlist-shell-v10';
+const CACHE_NAME = 'digest-playlist-shell-v11';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',

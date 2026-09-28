@@ -21,7 +21,7 @@ import { orderAlbumTracks } from './album-playback.js';
 import { PreviewPlayer } from './preview-player.js';
 import { PlaylistPlayer } from './playlist-player.js';
 import { renderPlaylistList } from './views/playlist-list-view.js';
-import { renderPlaylistDetail, updateNowPlayingTrack } from './views/playlist-detail-view.js';
+import { renderPlaylistDetail } from './views/playlist-detail-view.js';
 import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
@@ -101,16 +101,12 @@ window.addEventListener('offline', () => currentPlayer && currentPlayer.handleOf
 window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnline());
 
 /**
- * 再生中の曲一覧ハイライト（CR-022）・ミニプレイヤー（CR-016）へ、再生状態を反映する。
+ * ミニプレイヤー（CR-016）へ、再生状態を反映する。
  * CR-016：再生パネルを廃止したため、詳細画面を見ているかどうかに関わらず、
- * 再生中は常にミニプレイヤーを表示する。
+ * 再生中は常にミニプレイヤーを表示する。曲一覧側のハイライト表示（CR-022）は、
+ * ミニプレイヤーで確認できるため廃止した（フェーズ22）。
  */
 function reflectPlaybackState() {
-  if (playbackContext?.type === 'playlist'
-    && playlistView.screen === 'detail'
-    && playlistView.playlistId === playbackContext.playlistId) {
-    updateNowPlayingTrack(playlistPaneEl, currentPlayer ? currentPlayer.currentTrack()?.id ?? null : null);
-  }
   renderMiniPlayerBar();
 }
 
@@ -225,10 +221,9 @@ async function showPlaylistDetail(playlistId) {
 function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
   const playlistId = playlist.id;
   const isCurrentlyPlaying = playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId;
-  const nowPlayingTrackId = isCurrentlyPlaying && currentPlayer ? currentPlayer.currentTrack()?.id ?? null : null;
 
   renderPlaylistDetail(playlistPaneEl, {
-    playlist, tracks: available, unavailableIds, fetchError, isCurrentlyPlaying, nowPlayingTrackId,
+    playlist, tracks: available, unavailableIds, fetchError, isCurrentlyPlaying,
   }, {
     onBack: () => {
       playlistView = { screen: 'list' };
@@ -334,6 +329,9 @@ async function handleBulkAdd(trackIds) {
 
   if (playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
     showPlaylistDetail(targetId);
+  } else if (playlistView.screen === 'list') {
+    // 一覧画面の曲数表示が古いままにならないよう更新する（フェーズ22の不具合修正）
+    showPlaylistList();
   }
   return true;
 }
