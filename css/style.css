@@ -123,17 +123,6 @@ h1 { font-size: 1.1rem; }
   color: var(--fg);
   font-size: 1rem;
 }
-.inline-form button,
-button.primary {
-  padding: 10px 14px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
 .list { list-style: none; margin: 0; padding: 0; }
 .list .empty {
   color: var(--muted);
@@ -141,14 +130,18 @@ button.primary {
   text-align: center;
 }
 
+/* フェーズ28（CR-048）：Apple Musicのように、行はカード（角丸の背景ボックス）ではなく、
+   行の下端の横線（区切り線）で区切る意匠に統一する（NFR-5.6）。最後の行の下には区切り線を
+   付けない（読み込み中インジケータ等、.list-item以外の要素が続く場合は表示されたままになる） */
 .list-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--card);
-  border-radius: 10px;
   padding: 8px;
-  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.list-item:last-child {
+  border-bottom: none;
 }
 .list-item-main {
   flex: 1;
@@ -179,10 +172,12 @@ button.primary {
   gap: 8px;
 }
 
+/* フェーズ28（CR-049）：アイコンのみの操作ボタンは、背景色付きの角丸ボックス（カード）を
+   持たず、アイコン単体で表示する（NFR-5.7）。削除（ゴミ箱）アイコンも、専用の危険色ではなく
+   他のアイコンと同じプレーンな色で表示する（旧.icon-btn.dangerは廃止） */
 .icon-btn {
   border: none;
-  border-radius: 8px;
-  background: var(--btn-bg);
+  background: none;
   color: var(--fg);
   padding: 8px 10px;
   font-size: 0.85rem;
@@ -194,8 +189,10 @@ button.primary {
   align-items: center;
   justify-content: center;
 }
-.icon-btn.danger { color: var(--danger); }
 .icon-btn:disabled { opacity: 0.5; }
+/* CR-043/047/049：保存・チェック系のアイコンのみボタンは、背景を塗らずアクセントカラーの
+   文字色だけで強調する（旧.icon-btn.edit-save-btnの塗りつぶし背景から変更） */
+.icon-btn.confirm-icon-btn { color: var(--accent); }
 
 .track-item .artwork-sm,
 .track-item .artwork-sm ~ .item-main { vertical-align: middle; }
@@ -214,7 +211,9 @@ button.primary {
   align-items: center;
   justify-content: space-between;
 }
-.detail-topbar-actions { display: flex; gap: 8px; }
+/* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
+   間隔を8px→12pxに広げる（NFR-5.7） */
+.detail-topbar-actions { display: flex; gap: 12px; }
 
 /* --- フェーズ21（CR-034）：Apple Music風のヘッダー（大きめジャケット・名前・ピル型再生ボタン） --- */
 .hero {
@@ -239,6 +238,9 @@ button.primary {
   color: var(--muted);
 }
 .hero-artwork-placeholder svg { width: 64px; height: 64px; }
+/* フェーズ28（CR-047）：追加先選択・追加先常時表示の小さいジャケット枠でプレースホルダーを
+   流用する場合は、アイコンも小さいサイズに収める */
+.artwork-sm.hero-artwork-placeholder svg { width: 20px; height: 20px; }
 .hero-name {
   margin: 0;
   font-size: 1.2rem;
@@ -266,25 +268,32 @@ button.primary {
   border-radius: 50%;
 }
 
-/* --- フェーズ23（CR-037）：プレイリスト詳細の編集モード --- */
+/* --- フェーズ23（CR-037）：プレイリスト詳細の編集モード ---
+   フェーズ28（CR-049）：名前編集欄は、背景・枠線のボックス表示をやめ、通常時の見出し（h1）と
+   同じプレーンな見た目にする */
 .hero-name-input {
   width: 100%;
   text-align: center;
   font-size: 1.2rem;
   font-weight: 700;
-  background: var(--card);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
+  font-family: inherit;
+  background: transparent;
+  border: none;
   padding: 8px 12px;
   color: var(--fg);
 }
-.icon-btn.edit-save-btn {
-  background: var(--accent);
-  color: var(--accent-fg);
+/* フェーズ28（CR-044）：編集モード中は、ヒーロー画像自体がタップ可能な画像選択ボタンになる。
+   ボタンの既定のスタイル（枠線・背景・パディング）を打ち消し、画像だけが見える状態にする */
+.hero-image-picker-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 /* --- フェーズ23：検索結果の＋トグルボタン・編集モードのマイナスボタン。
-   小さめの丸ボタンとし、ジャケット・曲名のカードと同じ背景に収めてカードの右端まで囲む --- */
+   小さめの丸ボタンとし、行の右端に配置する（フェーズ28／CR-048で行の意匠がカードから
+   横線区切りに変わったが、ボタン自体の丸い塗りつぶし背景は変更しない） --- */
 .toggle-add-btn {
   flex-shrink: 0;
   width: 28px;
@@ -429,11 +438,14 @@ button.primary {
   text-align: left;
   padding: 0;
 }
-.mini-player-controls { display: flex; gap: 4px; flex-shrink: 0; }
+/* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
+   間隔を4px→10pxに広げる（NFR-5.7） */
+.mini-player-controls { display: flex; gap: 10px; flex-shrink: 0; }
 
-/* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に一括追加ボタン
-   （CR-021/024）を置く。min-heightで高さを揃え、プレイリスト一覧画面（フェーズ22で
-   同じクラスを適用）と検索画面とで、直下の入力欄の表示位置がずれないようにする --- */
+/* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に追加先プレイリストの
+   常時表示（フェーズ28／CR-047、FR-1.19）を置く。min-heightで高さを揃え、プレイリスト
+   一覧画面（フェーズ22で同じクラスを適用）と検索画面とで、直下の入力欄の表示位置が
+   ずれないようにする --- */
 .screen-header {
   display: flex;
   align-items: center;
@@ -442,7 +454,6 @@ button.primary {
   min-height: 44px;
 }
 .screen-header h1 { margin: 0; }
-.bulk-add-btn { flex-shrink: 0; }
 
 /* --- フェーズ16（CR-026）：検索結果行の種別アイコン（曲／アーティスト／アルバム） --- */
 .result-type-icon {
@@ -459,8 +470,11 @@ button.primary {
 }
 
 /* フェーズ23（実機確認フィードバック）：前回追加したプレイリストに付ける小さな案内ラベルは、
-   一覧の並び順は変えず、行の右端に表示する（.item-mainがflex:1のため自然に右端へ寄る） */
-.picker-last-used-badge {
+   一覧の並び順は変えず、行の右端に表示する（.item-mainがflex:1のため自然に右端へ寄る）。
+   フェーズ28（CR-047）：検索結果の「追加済」バッジ（FR-1.20）も、同じ見た目（青いアウトラインの
+   ピル型）を流用する */
+.picker-last-used-badge,
+.added-badge {
   display: inline-block;
   flex-shrink: 0;
   font-size: 0.7rem;
@@ -470,6 +484,88 @@ button.primary {
   border-radius: 999px;
   padding: 1px 8px;
   white-space: nowrap;
+}
+
+/* フェーズ28（CR-047）：＋ボタンをタップした瞬間、チェックアイコンへ余韻を残しながら変化させる */
+.toggle-add-btn.add-btn-confirmed {
+  color: var(--accent);
+  transform: scale(1.15);
+  transition: color 0.4s ease, transform 0.3s ease;
+}
+
+/* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19） --- */
+.dest-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 4px;
+  color: var(--fg);
+  max-width: 55vw;
+}
+.dest-header .artwork-sm { width: 32px; height: 32px; }
+.dest-header-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* FR-1.19：プレイリストが1件も無い場合のガイド表示（FR-5.4の明示的な例外） */
+.dest-header-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 4px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* --- フェーズ28（CR-043）：プレイリスト作成画面（FR-2.17） --- */
+.create-screen-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.image-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 160px;
+  height: 160px;
+  margin: 28px auto;
+  border: none;
+  border-radius: 12px;
+  background: var(--placeholder-bg);
+  color: var(--muted);
+  overflow: hidden;
+  padding: 0;
+}
+.image-picker img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.image-picker .icon-only svg {
+  width: 56px;
+  height: 56px;
+}
+.create-name-input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  font-size: 1rem;
 }
 
 /* --- フェーズ10・CR-012：アルバムの全曲一時再生（FR-1.11） --- */

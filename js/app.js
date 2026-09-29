@@ -9,6 +9,7 @@ import { getAllPlaylists, getPlaylist, savePlaylist, deletePlaylist } from './st
 import {
   createPlaylist,
   renamePlaylist,
+  setPlaylistImage,
   addTrackToPlaylist,
   removeTrackFromPlaylist,
 } from './models.js';
@@ -19,15 +20,15 @@ import {
 } from './staged-search-api.js';
 import { orderAlbumTracks } from './album-playback.js';
 import { sortTracksByArtist } from './playlist-sort.js';
+import { resolvePlaylistArtwork, resolvePlaylistsArtwork } from './playlist-artwork.js';
 import { PreviewPlayer } from './preview-player.js';
 import { PlaylistPlayer } from './playlist-player.js';
 import { renderPlaylistList } from './views/playlist-list-view.js';
 import { renderPlaylistDetail } from './views/playlist-detail-view.js';
+import { renderPlaylistCreate } from './views/playlist-create-view.js';
 import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
-import { showAddDestinationPicker } from './views/playlist-picker-dialog.js';
-import { showMessage } from './views/dialog.js';
 
 const playlistPaneEl = document.getElementById('playlist-pane');
 const searchPaneEl = document.getElementById('search-pane');
@@ -70,7 +71,8 @@ const previewPlayer = {
 
 // --- 画面全体のタブ状態（FR-6.1） ---
 let activeTab = 'playlist'; // 'playlist' | 'search'
-let playlistView = { screen: 'list' }; // { screen: 'list' } | { screen: 'detail', playlistId }
+// { screen: 'list' } | { screen: 'detail', playlistId } | { screen: 'create' }（CR-043）
+let playlistView = { screen: 'list' };
 
 // --- 再生の永続化（FR-4.16）：画面遷移では破棄しない。新しい再生を始めるときだけ入れ替える ---
 /** @type {PlaylistPlayer|null} */
@@ -169,6 +171,10 @@ function renderTabBarUi() {
       return;
     }
     activeTab = tab;
+    // プレイリストタブ側での作成・削除を反映するため、検索タブへ切り替わるたびに
+    // 追加先プレイリストの常時表示（FR-1.19）を再解決する（再マウントはしないため、
+    // 検索語・ドリルダウン位置はFR-1.17の通り保持される）
+    if (tab === 'search' && searchViewApi) searchViewApi.onTabActivated();
     applyTabVisibility();
   });
 }
@@ -192,8 +198,18 @@ async function showPlaylistList() {
       playlistView = { screen: 'detail', playlistId: id };
       showPlaylistDetail(id);
     },
-    onCreate: async (name) => {
-      await savePlaylist(createPlaylist(name));
+    onCreateNew: () => showPlaylistCreate(),
+  });
+  renderMiniPlayerBar();
+}
+
+/** プレイリスト作成画面（CR-043、FR-2.17） */
+function showPlaylistCreate() {
+  playlistView = { screen: 'create' };
+  renderPlaylistCreate(playlistPaneEl, {}, {
+    onCancel: () => showPlaylistList(),
+    onSave: async (name, imageBlob) => {
+      await savePlaylist(createPlaylist(name, imageBlob));
       showPlaylistList();
     },
   });
@@ -253,10 +269,12 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       startPlaylistPlayback(playlistId, ordered, startIndex === -1 ? undefined : startIndex, shuffleOn);
       renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
-    onSaveEdit: async (newName, remainingTrackIds) => {
+    onSaveEdit: async (newName, remainingTrackIds, newImageBlob) => {
       const removedIds = playlist.trackIds.filter((id) => !remainingTrackIds.includes(id));
       let updated = renamePlaylist(playlist, newName);
       removedIds.forEach((id) => { updated = removeTrackFromPlaylist(updated, id); });
+      // CR-044（FR-2.19）：画像を変更した場合のみ確定する（undefinedのままなら変更なし）
+      if (newImageBlob !== undefined) updated = setPlaylistImage(updated, newImageBlob);
       await savePlaylist(updated);
       if (removedIds.length && playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) {
         disposeCurrentPlayer();
@@ -316,56 +334,54 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
 }
 
 /**
- * 検索結果で選んだ曲（複数可）を、選んだプレイリストへその場で一括追加する（FR-1.13、CR-021/024）。
- * 既に追加先に含まれている曲は、追加後の完了メッセージで件数を知らせる（選択前のグレーアウトは、
- * 追加先が選択時点では未確定のため行わない。docs/plan-cr-implementation.md参照）。
- * @param {Array<string|number>} trackIds
- * @returns {Promise<boolean>} 実際に追加処理まで進んだ場合はtrue、キャンセルした場合はfalse
+ * 検索結果の＋ボタンをタップした時点で、その1曲だけを現在の追加先プレイリストへ即座に
+ * 追加する（FR-1.12、CR-047。複数選択→一括追加の方式は廃止した）。
+ * @param {string} playlistId
+ * @param {string|number} trackId
+ * @returns {Promise<{added: boolean}>}
  */
-async function handleBulkAdd(trackIds) {
-  if (trackIds.length === 0) return false;
-  const playlists = await getAllPlaylists();
-  const targetId = await showAddDestinationPicker(playlists, { lastUsedPlaylistId });
-  if (!targetId) return false;
-  const playlist = await getPlaylist(targetId);
-  if (!playlist) return false;
-
-  let updated = playlist;
-  let addedCount = 0;
-  for (const id of trackIds) {
-    const result = addTrackToPlaylist(updated, id);
-    if (result.added) {
-      updated = result.playlist;
-      addedCount += 1;
+async function handleInstantAdd(playlistId, trackId) {
+  const playlist = await getPlaylist(playlistId);
+  if (!playlist) return { added: false };
+  const result = addTrackToPlaylist(playlist, trackId);
+  if (result.added) {
+    await savePlaylist(result.playlist);
+    lastUsedPlaylistId = playlistId;
+    if (playlistView.screen === 'detail' && playlistView.playlistId === playlistId) {
+      showPlaylistDetail(playlistId);
+    } else if (playlistView.screen === 'list') {
+      // 一覧画面の曲数表示が古いままにならないよう更新する（フェーズ22の不具合修正と同じ観点）
+      showPlaylistList();
     }
   }
-  if (addedCount > 0) await savePlaylist(updated);
-  lastUsedPlaylistId = targetId;
-
-  const skippedCount = trackIds.length - addedCount;
-  const summary = skippedCount > 0
-    ? `${addedCount}曲を「${playlist.name}」に追加しました。（${skippedCount}曲は既に追加済みのため追加しませんでした）`
-    : `${addedCount}曲を「${playlist.name}」に追加しました。`;
-  await showMessage({ title: '追加しました', message: summary });
-
-  if (playlistView.screen === 'detail' && playlistView.playlistId === targetId) {
-    showPlaylistDetail(targetId);
-  } else if (playlistView.screen === 'list') {
-    // 一覧画面の曲数表示が古いままにならないよう更新する（フェーズ22の不具合修正）
-    showPlaylistList();
-  }
-  return true;
+  return { added: result.added };
 }
 
+let searchViewApi = null;
+
 function mountSearchTab() {
-  renderSearchView(searchPaneEl, { previewPlayer }, {
+  searchViewApi = renderSearchView(searchPaneEl, { previewPlayer }, {
     onSearchTracks: (term, offset, limit) => fetchSearchResults(term, 'jp', offset, limit),
     onSearchArtists: (term) => fetchArtistsLimited(term),
     onSearchAlbums: (term) => fetchAlbumsByTerm(term),
     onArtistAlbums: (artistId) => fetchArtistAlbums(artistId),
     onAlbumTracks: (collectionId) => fetchAlbumTracks(collectionId),
     onPlayAlbum: (tracks, opts) => startAlbumPlayback(tracks, opts),
-    onBulkAdd: (trackIds) => handleBulkAdd(trackIds),
+    onGetPlaylists: async () => {
+      const playlists = await getAllPlaylists();
+      playlists.sort((a, b) => b.updatedAt - a.updatedAt);
+      return playlists;
+    },
+    onGetLastUsedPlaylistId: () => lastUsedPlaylistId,
+    onResolveArtwork: (playlist) => resolvePlaylistArtwork(playlist, fetchTrackInfoByIds),
+    onResolveArtworkForAll: (playlists) => resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds),
+    onAddTrack: (playlistId, trackId) => handleInstantAdd(playlistId, trackId),
+    onCreatePlaylist: async (name, imageBlob) => {
+      const created = createPlaylist(name, imageBlob);
+      await savePlaylist(created);
+      if (playlistView.screen === 'list') showPlaylistList();
+      return created;
+    },
   });
 }
 

@@ -6,15 +6,23 @@
 // CR-019：この関数はapp.js側で1回だけ呼び出され、タブ切替ではDOMを再生成しない前提
 // （検索結果・ドリルダウンの位置は、このモジュール内のクロージャ変数として保持され続ける）。
 // CR-020/023：試聴はミニプレイヤーに表示される（previewPlayer経由。app.js側で連携）。
-// CR-021/024：カートを廃止し、行の＋ボタンでその場複数選択→右上の「追加」ボタンで一括追加する。
 // CR-026：行の種別アイコン（曲／アーティスト／アルバム）はtrack-row.js側で付与する。
+// フェーズ28（CR-046）：検索ボタンを廃止し、入力を始めた時点で動的に検索する（300msデバウンス）。
+// フェーズ28（CR-047）：曲の複数選択→一括追加の方式を廃止。画面右上に、現在の追加先プレイリストを
+// ジャケット＋名前で常時表示し（FR-1.19）、＋ボタンのタップで即座にその曲を1曲だけ追加する
+// （FR-1.12）。この常時表示をタップすると、追加先を変更するモーダル（FR-2.4）が開く。
+// プレイリストが1件も無い場合は、常時表示の位置にプレイリスト作成を促すガイドを表示する
+// （FR-1.19、FR-5.4の例外）。
 
 import {
   trackRowHtml, compactTrackRowHtml, artistRowHtml, albumRowHtml,
   bindTrackRowEvents, bindArtistRowEvents, bindAlbumRowEvents,
 } from './track-row.js';
-import { iconLabel, iconOnly } from './icons.js';
+import { iconOnly } from './icons.js';
 import { largeArtworkUrl } from '../artwork-url.js';
+import { blobToUrl } from '../blob-url-cache.js';
+import { showAddDestinationPicker } from './playlist-picker-dialog.js';
+import { renderPlaylistCreate } from './playlist-create-view.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,11 +30,7 @@ function escapeHtml(str) {
 
 const PAGE_SIZE_FIRST = 25;
 const PAGE_SIZE_MORE = 50;
-
-function bulkAddButtonHtml(count) {
-  if (count <= 0) return '';
-  return `<button type="button" id="bulk-add-btn" class="primary bulk-add-btn">${iconLabel('add', `追加（${count}）`)}</button>`;
-}
+const SEARCH_DEBOUNCE_MS = 300; // CR-046：ネットワーク通信を伴う曲検索は、入力が止まってから実行する
 
 function loadMoreIndicatorHtml() {
   return `<li class="load-more-indicator" aria-hidden="true">${iconOnly('more')}</li>`;
@@ -42,7 +46,12 @@ function loadMoreIndicatorHtml() {
  *   onArtistAlbums: (artistId) => Promise<Array>,
  *   onAlbumTracks: (albumId) => Promise<Array>,
  *   onPlayAlbum: Function,
- *   onBulkAdd: (trackIds: Array) => Promise<boolean>,
+ *   onGetPlaylists: () => Promise<Array<object>>,
+ *   onGetLastUsedPlaylistId: () => (string|null),
+ *   onResolveArtwork: (playlist: object) => Promise<object>,
+ *   onResolveArtworkForAll: (playlists: Array<object>) => Promise<Map<string, object>>,
+ *   onAddTrack: (playlistId: string, trackId: (string|number)) => Promise<{added: boolean}>,
+ *   onCreatePlaylist: (name: string, imageBlob: (Blob|null)) => Promise<object>,
  * }} actions
  */
 export function renderSearchView(container, { previewPlayer }, actions) {
@@ -54,15 +63,18 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   let hasMore = false;
   let loadingMore = false;
   let observer = null;
-  let selectedIds = new Set(); // 結果一覧トップの曲の選択（CR-024）
+  let searchDebounceTimer = null;
 
   let selectedArtist = null;
   let drillAlbums = [];
   let selectedAlbum = null;
   let albumTracks = [];
-  let albumTrackSelectedIds = new Set(); // アルバム収録曲一覧内の選択（CR-021）
   let shuffleOn = false;
   let previousModeForTracks = 'results'; // 'albums'から来たか'results'から来たかを覚えておく（戻る先の判定用）
+
+  // --- CR-047：現在の追加先プレイリスト（FR-1.19）。検索タブが再マウントされるまで保持する ---
+  let currentDestination = null; // { id, name, trackIds, artwork } | null（プレイリストが1件も無い場合）
+  let destinationLoaded = false;
 
   function teardownObserver() {
     if (observer) {
@@ -71,13 +83,115 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     }
   }
 
-  async function handleBulkAdd(ids, selectedSet, rerender) {
-    if (ids.length === 0) return;
-    const added = await actions.onBulkAdd(ids);
-    if (added) {
-      selectedSet.clear();
-      rerender();
+  // ------- 追加先プレイリスト（FR-1.19）の常時表示 -------
+
+  async function ensureDestinationLoaded() {
+    if (destinationLoaded) return;
+    const playlists = await actions.onGetPlaylists();
+    if (playlists.length === 0) {
+      currentDestination = null;
+    } else {
+      const lastId = actions.onGetLastUsedPlaylistId();
+      const chosen = playlists.find((p) => p.id === lastId) || playlists[0];
+      const artwork = await actions.onResolveArtwork(chosen);
+      currentDestination = { ...chosen, artwork };
     }
+    destinationLoaded = true;
+  }
+
+  function destinationArtworkImgHtml(artwork, id) {
+    if (artwork?.source === 'custom' && artwork.blob) {
+      return `<img src="${escapeHtml(blobToUrl(id, artwork.blob))}" alt="" class="artwork-sm">`;
+    }
+    if (artwork?.source === 'track' && artwork.url) {
+      return `<img src="${escapeHtml(artwork.url)}" alt="" class="artwork-sm">`;
+    }
+    return `<div class="artwork-sm hero-artwork-placeholder">${iconOnly('disc')}</div>`;
+  }
+
+  function destinationHeaderHtml() {
+    if (!currentDestination) {
+      // FR-1.19：プレイリストが1件も無い場合のガイド表示（FR-5.4の明示的な例外）
+      return `
+        <button type="button" id="dest-guide-btn" class="dest-header-guide" aria-label="プレイリストを作成">
+          ${iconOnly('add')}<span>プレイリストを作成</span>
+        </button>
+      `;
+    }
+    return `
+      <button type="button" id="dest-header-btn" class="dest-header" aria-label="追加先プレイリストを変更">
+        ${destinationArtworkImgHtml(currentDestination.artwork, currentDestination.id)}
+        <span class="dest-header-name">${escapeHtml(currentDestination.name)}</span>
+      </button>
+    `;
+  }
+
+  /** 追加先ヘッダーの開閉・遷移イベントを結びつける。destinationが変わったらonChangedを呼ぶ */
+  function bindDestinationHeaderEvents(slot, onChanged) {
+    const guideBtn = slot.querySelector('#dest-guide-btn');
+    if (guideBtn) {
+      guideBtn.addEventListener('click', () => {
+        renderPlaylistCreate(container, {}, {
+          onCancel: () => onChanged(),
+          onSave: async (name, imageBlob) => {
+            const created = await actions.onCreatePlaylist(name, imageBlob);
+            currentDestination = {
+              ...created,
+              artwork: imageBlob ? { source: 'custom', blob: imageBlob } : { source: 'none' },
+            };
+            onChanged();
+          },
+        });
+      });
+      return;
+    }
+    const headerBtn = slot.querySelector('#dest-header-btn');
+    if (!headerBtn) return;
+    headerBtn.addEventListener('click', async () => {
+      const playlists = await actions.onGetPlaylists();
+      const artworkMap = await actions.onResolveArtworkForAll(playlists);
+      const withArtwork = playlists.map((p) => ({ ...p, artwork: artworkMap.get(p.id) }));
+      const chosenId = await showAddDestinationPicker(withArtwork, {
+        lastUsedPlaylistId: actions.onGetLastUsedPlaylistId(),
+      });
+      if (chosenId && (!currentDestination || chosenId !== currentDestination.id)) {
+        currentDestination = withArtwork.find((p) => p.id === chosenId) || currentDestination;
+        onChanged();
+      }
+    });
+  }
+
+  /**
+   * 各ステップ（results/albums/tracks）の.screen-header内にある#dest-header-slotへ、
+   * 追加先プレイリストの常時表示（FR-1.19）を描画する。初回解決時（destinationLoadedが
+   * falseだった場合）は、＋ボタン・追加済みバッジの表示を最新化するためonFirstLoadを呼ぶ。
+   * @param {() => void} rerenderStep 追加先を変更した後に、現在のステップを再描画する関数
+   * @param {() => void} [onFirstLoad] 初回解決後に一覧の追加済み表示を更新するための再描画関数
+   */
+  async function mountDestinationHeader(rerenderStep, onFirstLoad) {
+    const wasLoaded = destinationLoaded;
+    await ensureDestinationLoaded();
+    const slot = container.querySelector('#dest-header-slot');
+    if (!slot) return; // 描画中に画面遷移済み
+    slot.innerHTML = destinationHeaderHtml();
+    bindDestinationHeaderEvents(slot, rerenderStep);
+    if (!wasLoaded && onFirstLoad) onFirstLoad();
+  }
+
+  /** ＋ボタンのタップで、現在の追加先へ即座に1曲追加する（CR-047） */
+  async function handleInstantAdd(track) {
+    if (!currentDestination) return { added: false };
+    const result = await actions.onAddTrack(currentDestination.id, track.id);
+    if (result.added) {
+      currentDestination = { ...currentDestination, trackIds: [...currentDestination.trackIds, track.id] };
+    }
+    return result;
+  }
+
+  function rerenderCurrentStep() {
+    if (mode === 'albums') renderAlbumsStep();
+    else if (mode === 'tracks') renderAlbumTracksStep();
+    else renderResultsStep();
   }
 
   // ------- 検索結果ステップ（曲・アーティスト・アルバム混在） -------
@@ -87,36 +201,27 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     container.innerHTML = `
       <div class="screen-header">
         <h1>曲を検索</h1>
-        ${bulkAddButtonHtml(selectedIds.size)}
+        <div id="dest-header-slot"></div>
       </div>
       <form id="search-form" class="inline-form">
-        <input type="text" id="search-term" placeholder="曲名・アーティスト名・アルバム名" required value="${escapeHtml(term)}">
-        <button type="submit">検索</button>
+        <input type="text" id="search-term" placeholder="曲名・アーティスト名・アルバム名" value="${escapeHtml(term)}">
       </form>
       <div id="search-status" class="note"></div>
       <ul class="list" id="search-results"></ul>
     `;
+    // CR-046：検索ボタンを廃止したため、モバイルキーボードのEnter等でのフォーム送信は無視する
+    container.querySelector('#search-form').addEventListener('submit', (e) => e.preventDefault());
 
     const statusEl = container.querySelector('#search-status');
 
-    function bindBulkAddButton() {
-      const btn = container.querySelector('#bulk-add-btn');
-      if (btn) {
-        btn.addEventListener('click', () => handleBulkAdd([...selectedIds], selectedIds, renderResultsList));
-      }
-    }
-    bindBulkAddButton();
-
     function renderResultsList() {
-      const headerEl = container.querySelector('.screen-header');
-      headerEl.innerHTML = `<h1>曲を検索</h1>${bulkAddButtonHtml(selectedIds.size)}`;
-      bindBulkAddButton();
-
       const resultsEl = container.querySelector('#search-results');
+      if (!resultsEl) return; // mountDestinationHeaderの解決待ち中に画面遷移済み
+      const addedIds = currentDestination ? new Set(currentDestination.trackIds) : new Set();
       resultsEl.innerHTML = [
         ...artists.map((a, i) => artistRowHtml(a, i)),
         ...albums.map((a, i) => albumRowHtml(a, i)),
-        ...tracks.map((t, i) => trackRowHtml(t, i, { checked: selectedIds.has(t.id) })),
+        ...tracks.map((t, i) => trackRowHtml(t, i, { added: addedIds.has(t.id) })),
       ].join('');
 
       bindArtistRowEvents(resultsEl, artists, (artist) => {
@@ -132,13 +237,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       // 同じresultsEl内にアーティスト/アルバム行が混在していてもindexはtracks配列とずれない。
       bindTrackRowEvents(resultsEl, tracks, {
         previewPlayer,
-        onCheckToggle: (track, checked) => {
-          if (checked) selectedIds.add(track.id);
-          else selectedIds.delete(track.id);
-          const headerEl2 = container.querySelector('.screen-header');
-          headerEl2.innerHTML = `<h1>曲を検索</h1>${bulkAddButtonHtml(selectedIds.size)}`;
-          bindBulkAddButton();
-        },
+        onAdd: (track) => handleInstantAdd(track),
       });
 
       teardownObserver();
@@ -170,7 +269,6 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     async function runSearch(newTerm) {
       term = newTerm;
       previewPlayer.stop();
-      selectedIds.clear();
       statusEl.textContent = '検索中…';
       container.querySelector('#search-results').innerHTML = '';
       teardownObserver();
@@ -195,11 +293,22 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       }
     }
 
-    container.querySelector('#search-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const newTerm = container.querySelector('#search-term').value.trim();
-      if (!newTerm) return;
-      runSearch(newTerm);
+    // CR-046：文字を入力し始めた時点で、入力が止まってから（デバウンス）動的に検索する
+    container.querySelector('#search-term').addEventListener('input', (e) => {
+      const newTerm = e.target.value.trim();
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      if (!newTerm) {
+        term = '';
+        tracks = [];
+        artists = [];
+        albums = [];
+        hasMore = false;
+        teardownObserver();
+        statusEl.textContent = '';
+        container.querySelector('#search-results').innerHTML = '';
+        return;
+      }
+      searchDebounceTimer = setTimeout(() => runSearch(newTerm), SEARCH_DEBOUNCE_MS);
     });
 
     // 既に検索済みの結果があれば（タブ切替からの復帰、CR-019）そのまま再表示する
@@ -208,6 +317,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     } else if (term) {
       runSearch(term);
     }
+
+    mountDestinationHeader(rerenderCurrentStep, renderResultsList);
   }
 
   // ------- アルバム一覧ステップ（アーティストからのドリルダウン） -------
@@ -234,7 +345,10 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   function renderAlbumsStep() {
     mode = 'albums';
     container.innerHTML = `
-      ${backButtonHtml('back-to-results', '検索結果へ戻る')}
+      <div class="screen-header">
+        ${backButtonHtml('back-to-results', '検索結果へ戻る')}
+        <div id="dest-header-slot"></div>
+      </div>
       <h2>${escapeHtml(selectedArtist.name)}のアルバム</h2>
       <ul class="list" id="album-results">
         ${
@@ -251,6 +365,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       previousModeForTracks = 'albums';
       loadAlbumTracksFromResults();
     });
+
+    mountDestinationHeader(rerenderCurrentStep);
   }
 
   // ------- アルバム収録曲一覧ステップ -------
@@ -260,7 +376,6 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     container.innerHTML = `<div class="note">収録曲を取得中…</div>`;
     try {
       albumTracks = await actions.onAlbumTracks(selectedAlbum.id);
-      albumTrackSelectedIds.clear();
       shuffleOn = false;
       renderAlbumTracksStep();
     } catch (err) {
@@ -283,7 +398,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     container.innerHTML = `
       <div class="screen-header">
         ${backButtonHtml('back-from-tracks', backLabel)}
-        ${bulkAddButtonHtml(albumTrackSelectedIds.size)}
+        <div id="dest-header-slot"></div>
       </div>
       <div class="hero">
         <img src="${escapeHtml(largeArtworkUrl(selectedAlbum.artwork))}" alt="" class="hero-artwork">
@@ -304,14 +419,6 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     `;
     container.querySelector('#back-from-tracks').addEventListener('click', backTarget);
 
-    function bindBulkAddButton() {
-      const btn = container.querySelector('#bulk-add-btn');
-      if (btn) {
-        btn.addEventListener('click', () => handleBulkAdd([...albumTrackSelectedIds], albumTrackSelectedIds, renderAlbumTracksStep));
-      }
-    }
-    bindBulkAddButton();
-
     if (canPlayAlbum) {
       const shuffleBtn = container.querySelector('#album-shuffle-btn');
       shuffleBtn.classList.toggle('active', shuffleOn);
@@ -326,22 +433,34 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       });
     }
 
-    const listEl = container.querySelector('#album-track-results');
-    listEl.innerHTML = albumTracks
-      .map((t, i) => compactTrackRowHtml(t, i, { checked: albumTrackSelectedIds.has(t.id) }))
-      .join('');
-    bindTrackRowEvents(listEl, albumTracks, {
-      previewPlayer,
-      onCheckToggle: (track, checked) => {
-        if (checked) albumTrackSelectedIds.add(track.id);
-        else albumTrackSelectedIds.delete(track.id);
-        const headerEl = container.querySelector('.screen-header');
-        headerEl.innerHTML = `${backButtonHtml('back-from-tracks', backLabel)}${bulkAddButtonHtml(albumTrackSelectedIds.size)}`;
-        container.querySelector('#back-from-tracks').addEventListener('click', backTarget);
-        bindBulkAddButton();
-      },
-    });
+    function renderTrackList() {
+      const listEl = container.querySelector('#album-track-results');
+      if (!listEl) return; // mountDestinationHeaderの解決待ち中に画面遷移済み
+      const addedIds = currentDestination ? new Set(currentDestination.trackIds) : new Set();
+      listEl.innerHTML = albumTracks
+        .map((t, i) => compactTrackRowHtml(t, i, { added: addedIds.has(t.id) }))
+        .join('');
+      bindTrackRowEvents(listEl, albumTracks, {
+        previewPlayer,
+        onAdd: (track) => handleInstantAdd(track),
+      });
+    }
+    renderTrackList();
+
+    mountDestinationHeader(rerenderCurrentStep, renderTrackList);
   }
 
   renderResultsStep();
+
+  return {
+    /**
+     * 検索タブが（再マウントではなく）表示状態に切り替わった際に呼ぶ。プレイリストタブ側で
+     * 作成・削除された内容を反映するため、追加先プレイリストの常時表示（FR-1.19）を
+     * 再解決してから、現在のステップを再描画する（ネットワークの再検索は行わない）。
+     */
+    onTabActivated() {
+      destinationLoaded = false;
+      rerenderCurrentStep();
+    },
+  };
 }

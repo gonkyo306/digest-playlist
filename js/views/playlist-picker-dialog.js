@@ -1,4 +1,4 @@
-// フェーズ7：「追加先のプレイリストを選ぶ」モーダル（FR-2.4, FR-1.13）。
+// フェーズ7：「追加先のプレイリストを選ぶ」モーダル（FR-2.4）。
 // dialog.js と同じ、Promiseベースの独自オーバーレイ方式（ブラウザ標準confirmの代わり）。
 // CR-028：dialog.jsのenqueueDialogを経由し、他のダイアログと同様に多重表示を防ぐ。
 // フェーズ22（仕様見直し）：CR-025で導入した「前回と同じ／他を選ぶ」の2択ダイアログは廃止し、
@@ -6,16 +6,37 @@
 // 「前回追加」ラベルを付けて目立たせる（選ぶ操作自体は他の行と同じ1タップ）。
 // フェーズ23（実機確認フィードバック）：一覧の並び順を先頭に並べ替える方式は、追加先を探しに
 // くいとの指摘を受けて廃止。並び順は変えず、ラベルは該当する行の一番右に表示する。
+// フェーズ28（CR-047）：常時表示の追加先（FR-1.19）を変更するためのモーダルに位置づけを変更し、
+// 各行にそのプレイリストの代表画像（FR-2.10と同じ優先順位で解決済みのもの）を表示する。
+// 一覧自体は既存の縦並びリスト（.picker-list、スクロール可能）のデザインを踏襲する。
 
 import { enqueueDialog } from './dialog.js';
+import { blobToUrl } from '../blob-url-cache.js';
+import { iconOnly } from './icons.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /**
+ * プレイリストの代表画像（resolvePlaylistArtworkの結果。無ければ省略可）を、行内の
+ * ジャケット画像として表示するHTMLを組み立てる。
+ * @param {object} playlist
+ * @param {{source: 'custom'|'track'|'none', blob?: Blob, url?: string}} [artwork]
+ */
+function pickerRowArtworkHtml(playlist, artwork) {
+  if (artwork?.source === 'custom' && artwork.blob) {
+    return `<img src="${escapeHtml(blobToUrl(playlist.id, artwork.blob))}" alt="" class="artwork-sm">`;
+  }
+  if (artwork?.source === 'track' && artwork.url) {
+    return `<img src="${escapeHtml(artwork.url)}" alt="" class="artwork-sm">`;
+  }
+  return `<div class="artwork-sm hero-artwork-placeholder">${iconOnly('disc')}</div>`;
+}
+
+/**
  * プレイリスト一覧から選ぶモーダル本体（enqueueDialogの外側。showPlaylistPicker/showAddDestinationPickerの共通実装）。
- * @param {Array<{id: string, name: string, trackIds: Array}>} playlists
+ * @param {Array<{id: string, name: string, trackIds: Array, artwork?: object}>} playlists
  * @param {string|null} lastUsedPlaylistId 指定があれば、その playlist の行の右端にラベルを付ける（並び順は変えない）
  */
 function openPickerList(playlists, lastUsedPlaylistId = null) {
@@ -31,6 +52,7 @@ function openPickerList(playlists, lastUsedPlaylistId = null) {
               ${playlists.map((m) => `
                 <li class="list-item">
                   <button type="button" class="list-item-main playlist-picker-item" data-id="${escapeHtml(m.id)}">
+                    ${pickerRowArtworkHtml(m, m.artwork)}
                     <span class="item-main">
                       <span class="item-name">${escapeHtml(m.name)}</span>
                       <span class="item-sub">${m.trackIds.length}曲</span>
@@ -70,9 +92,9 @@ export function showPlaylistPicker(playlists) {
 }
 
 /**
- * 追加先を選ぶ（FR-2.4）。全プレイリストを一覧表示し、前回追加したプレイリストがあれば
- * 並び順はそのままに、その行の右端に「前回追加」ラベルを付けて表示する。
- * @param {Array<{id: string, name: string, trackIds: Array}>} playlists
+ * 追加先を選ぶ（FR-2.4）。全プレイリストを一覧表示し、各行にジャケット画像を表示する。
+ * 前回追加したプレイリストがあれば、並び順はそのままに、その行の右端に「前回追加」ラベルを付ける。
+ * @param {Array<{id: string, name: string, trackIds: Array, artwork?: object}>} playlists
  * @param {{lastUsedPlaylistId?: string|null}} [options]
  * @returns {Promise<string|null>}
  */

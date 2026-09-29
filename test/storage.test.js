@@ -48,6 +48,16 @@ test('deletePlaylist: 削除したプレイリストは取得できなくなる 
   assert.equal(after, undefined);
 });
 
+test('savePlaylist → getPlaylist: 画像（Blob）付きプレイリストも保存・読込できる (CR-043)', async () => {
+  const blob = new Blob(['fake-image-bytes'], { type: 'image/jpeg' });
+  const m = createPlaylist('画像付き', blob);
+  await savePlaylist(m);
+  const loaded = await getPlaylist(m.id);
+  assert.ok(loaded.coverImage instanceof Blob, 'coverImageはBlobのまま読み出せる');
+  assert.equal(loaded.coverImage.type, 'image/jpeg');
+  assert.equal(loaded.coverImage.size, blob.size);
+});
+
 test('savePlaylist: 曲の順序を保ったまま保存・読込できる', async () => {
   let m = createPlaylist('順序テスト');
   for (const id of ['c', 'a', 'b']) {

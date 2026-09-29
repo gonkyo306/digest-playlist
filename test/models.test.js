@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createPlaylist,
   renamePlaylist,
+  setPlaylistImage,
   addTrackToPlaylist,
   removeTrackFromPlaylist,
   isDuplicateTrack,
@@ -84,4 +85,40 @@ test('isValidPlaylist: idが無い、trackIdsが配列でない等は無効', ()
   assert.equal(isValidPlaylist(null), false);
   assert.equal(isValidPlaylist({ name: 'x', trackIds: [] }), false);
   assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: 'not-an-array' }), false);
+});
+
+test('createPlaylist: 画像（Blob）を指定して作成できる (CR-043)', () => {
+  const blob = new Blob(['x'], { type: 'image/jpeg' });
+  const m = createPlaylist('プレイリスト', blob);
+  assert.equal(m.coverImage, blob);
+});
+
+test('createPlaylist: 画像を指定しなければcoverImageはnull', () => {
+  const m = createPlaylist('プレイリスト');
+  assert.equal(m.coverImage, null);
+});
+
+test('setPlaylistImage: 画像を設定・変更できる (CR-043・CR-044)', () => {
+  const m = createPlaylist('プレイリスト');
+  const blob = new Blob(['x'], { type: 'image/jpeg' });
+  const updated = setPlaylistImage(m, blob);
+  assert.equal(updated.coverImage, blob);
+  assert.equal(updated.id, m.id);
+});
+
+test('setPlaylistImage: nullを渡すと画像を未設定に戻せる', () => {
+  const blob = new Blob(['x'], { type: 'image/jpeg' });
+  let m = createPlaylist('プレイリスト', blob);
+  m = setPlaylistImage(m, null);
+  assert.equal(m.coverImage, null);
+});
+
+test('isValidPlaylist: coverImageが未設定・null・Blobのいずれも有効 (CR-043)', () => {
+  assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [] }), true);
+  assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [], coverImage: null }), true);
+  assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [], coverImage: new Blob() }), true);
+});
+
+test('isValidPlaylist: coverImageがBlob以外（文字列等）なら無効', () => {
+  assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [], coverImage: 'not-a-blob' }), false);
 });

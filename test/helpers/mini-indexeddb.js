@@ -63,8 +63,12 @@ class FakeObjectStore {
   }
 }
 
+// 本物のIndexedDBは構造化複製アルゴリズムで値を複製する（JSONシリアライズではない）。
+// CR-043でプレイリストにBlob（coverImage）を持たせるようになり、Blobを含むオブジェクトを
+// JSON.stringifyすると空オブジェクト{}になって壊れてしまうため、Node組み込みのstructuredClone
+// （Blobのクローンに対応）を使う。これは実際のIndexedDBの挙動により忠実でもある。
 function structuredCloneLike(v) {
-  return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  return v === undefined ? undefined : structuredClone(v);
 }
 
 class FakeTransaction extends EventTarget {

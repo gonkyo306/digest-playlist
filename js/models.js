@@ -4,16 +4,19 @@
 
 /**
  * 新しいプレイリストを作る。
- * 保存する内容は曲の識別情報（trackId）のみ（FR-3.2）。曲名・ジャケット等は保存しない。
+ * 保存する内容は曲の識別情報（trackId）と、任意のカスタム画像（coverImage）のみ（FR-3.2、CR-043）。
+ * 曲名・ジャケットURL等は保存しない。
  * @param {string} name
+ * @param {Blob|null} [coverImage] プレイリスト作成画面（FR-2.17）で設定した画像（リサイズ・圧縮済み）
  * @returns {object} playlist
  */
-export function createPlaylist(name) {
+export function createPlaylist(name, coverImage = null) {
   const now = Date.now();
   return {
     id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `playlist_${now}_${Math.random().toString(36).slice(2)}`,
     name,
     trackIds: [],
+    coverImage: coverImage || null,
     createdAt: now,
     updatedAt: now,
   };
@@ -22,6 +25,11 @@ export function createPlaylist(name) {
 /** プレイリストの名前を変更した新しいオブジェクトを返す（FR-2.2） */
 export function renamePlaylist(playlist, newName) {
   return { ...playlist, name: newName, updatedAt: Date.now() };
+}
+
+/** プレイリストの画像を設定・変更した新しいオブジェクトを返す（CR-043・CR-044、FR-2.17・FR-2.19） */
+export function setPlaylistImage(playlist, coverImage) {
+  return { ...playlist, coverImage: coverImage || null, updatedAt: Date.now() };
 }
 
 /**
@@ -56,11 +64,15 @@ export function removeTrackFromPlaylist(playlist, trackId) {
   };
 }
 
-/** 保存用にシリアライズ可能な形かどうかを検証する（storage.js から利用） */
+/**
+ * 保存用にシリアライズ可能な形かどうかを検証する（storage.js から利用）。
+ * coverImage（CR-043）は任意項目で、未設定（undefined）・null・Blobのいずれかであれば有効とする。
+ */
 export function isValidPlaylist(obj) {
   return !!obj
     && typeof obj.id === 'string'
     && typeof obj.name === 'string'
     && Array.isArray(obj.trackIds)
-    && obj.trackIds.every((t) => typeof t === 'string' || typeof t === 'number');
+    && obj.trackIds.every((t) => typeof t === 'string' || typeof t === 'number')
+    && (obj.coverImage === undefined || obj.coverImage === null || obj.coverImage instanceof Blob);
 }
