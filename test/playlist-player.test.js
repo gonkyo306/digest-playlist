@@ -243,3 +243,45 @@ test('pauseForPreview: 検索結果の試聴時に、再生中のプレイリス
   player.pauseForPreview();
   assert.equal(player.playing, false);
 });
+
+// --- CR-038（FR-2.15, FR-2.16）：プレイリスト詳細のシャッフルON/OFF切り替え ---
+
+test('shuffle:false を指定すると、渡した順番のまま先頭から再生される (CR-038)', async () => {
+  const tracks = makeTracks(5);
+  const { player } = createPlayer(tracks, { shuffle: false });
+  await player.start();
+  assert.deepEqual(player.order, [0, 1, 2, 3, 4]);
+  assert.equal(player.currentTrack().id, tracks[0].id);
+});
+
+test('shuffle:false + start(startIndex): 指定した曲から表示順のまま一巡する (CR-038)', async () => {
+  const tracks = makeTracks(5);
+  const { player } = createPlayer(tracks, { shuffle: false });
+  await player.start(2);
+  assert.deepEqual(player.order, [2, 3, 4, 0, 1]);
+  assert.equal(player.currentTrack().id, tracks[2].id);
+});
+
+test('shuffle:false で一巡すると、同じ並び順のまま先頭から繰り返す（再シャッフルしない） (CR-038)', async () => {
+  const tracks = makeTracks(3);
+  const { player, createdAudios } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
+  await player.start();
+  // クロスフェード無効時はactiveが固定される（createdAudios[0]のまま）。3曲分ended通知を送り、
+  // 一巡後に先頭へ戻ることを確認する
+  for (let i = 0; i < 3; i++) {
+    createdAudios[0].fireEnded();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+  assert.deepEqual(player.order, [0, 1, 2]);
+  assert.equal(player.currentTrack().id, tracks[0].id);
+});
+
+test('shuffle省略時（既定）は、これまで通りランダムな初期順序になる (FR-4.2)', async () => {
+  const tracks = makeTracks(20);
+  const { player } = createPlayer(tracks);
+  await player.start();
+  assert.deepEqual([...player.order].sort((a, b) => a - b), Array.from({ length: 20 }, (_, i) => i));
+  // 20曲であれば、常に[0,1,2,...]の並びになることはまず無い
+  assert.notDeepEqual(player.order, Array.from({ length: 20 }, (_, i) => i));
+});

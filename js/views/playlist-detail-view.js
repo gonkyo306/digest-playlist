@@ -15,6 +15,10 @@
 //   各曲の右に赤いマイナスボタンが表示される(タップすると一覧から消えるが、削除は確定しない)。
 //   「保存」で名前・曲一覧をまとめて確定し、「キャンセル」で編集前の状態に戻す。
 //   プレイリスト自体の削除ボタンは編集モードに含めず、通常時から独立して常に操作できる。
+// フェーズ24(CR-038)：ヒーローエリアの「再生」ボタンの隣に、アルバム詳細と同じ丸いシャッフル
+//   ON/OFF切り替えボタンを追加する。既定はON(FR-4.2の「毎回ランダム」を維持)。OFFにすると、
+//   曲一覧の表示順(アーティスト名順)で、再生ボタンなら先頭から、行タップならその曲の次から
+//   順に連続再生する(FR-2.15、FR-2.16)。
 
 import { showConfirm } from './dialog.js';
 import { sortTracksByArtist } from '../playlist-sort.js';
@@ -31,9 +35,12 @@ function escapeHtml(str) {
  *   isCurrentlyPlaying?: boolean}} data
  *   tracksは取得済みの順序(playlist.trackIdsの順、取得できなかった曲を除く)のまま渡すこと。
  *   先頭の曲(tracks[0])のジャケットを、代表画像として使う(CR-034)。
- * @param {{onBack, onStartPlayback, onTrackTap, onDelete,
+ * @param {{onBack, onDelete,
+ *   onStartPlayback: (shuffleOn: boolean) => void,
+ *   onTrackTap: (trackId: string|number, shuffleOn: boolean) => void,
  *   onSaveEdit: (newName: string, remainingTrackIds: string[]) => (void|Promise<void>)}} actions
  *   onSaveEditは、編集モードで「保存」をタップした際に1回だけ呼ばれる(名前・曲一覧の変更をまとめて確定)。
+ *   onStartPlayback/onTrackTapには、現在のシャッフルON/OFFの状態を渡す(CR-038)。
  */
 export function renderPlaylistDetail(container, {
   playlist, tracks: rawTracks, unavailableIds, fetchError, isCurrentlyPlaying = false,
@@ -48,6 +55,7 @@ export function renderPlaylistDetail(container, {
   let editMode = false;
   let editName = playlist.name;
   let removedIds = new Set();
+  let shuffleOn = true; // CR-038：画面を開いた直後の初期状態はON（FR-2.16）
 
   function render() {
     // removedIdsはdata-id属性(常に文字列)経由で集めるため、比較はString(t.id)に揃える
@@ -76,7 +84,10 @@ export function renderPlaylistDetail(container, {
           ? `<input type="text" id="edit-name-input" class="hero-name-input" value="${escapeHtml(editName)}" aria-label="プレイリスト名">`
           : `<h1 class="hero-name">${escapeHtml(playlist.name)}</h1>`}
         ${!editMode && showPlayButton ? `
-          <button id="play-start-btn" class="pill-play-btn" aria-label="再生">${iconOnly('play')}<span>再生</span></button>
+          <div class="hero-actions">
+            <button id="shuffle-btn" class="icon-btn shuffle-btn${shuffleOn ? ' active' : ''}" aria-label="シャッフル" aria-pressed="${shuffleOn}">${iconOnly('shuffle')}</button>
+            <button id="play-start-btn" class="pill-play-btn" aria-label="再生">${iconOnly('play')}<span>再生</span></button>
+          </div>
         ` : ''}
       </div>
 
@@ -100,7 +111,7 @@ export function renderPlaylistDetail(container, {
                 </div>
               </button>
               ${editMode ? `
-                <button type="button" class="toggle-add-btn is-selected track-remove-btn" data-id="${escapeHtml(t.id)}" aria-label="この曲を削除">${iconOnly('minus')}</button>
+                <button type="button" class="toggle-add-btn track-remove-btn" data-id="${escapeHtml(t.id)}" aria-label="この曲を削除">${iconOnly('minus')}</button>
               ` : ''}
             </li>
           `).join('')}
@@ -148,11 +159,17 @@ export function renderPlaylistDetail(container, {
       // 通常モードではshownTracks === tracksなので、liの並び順とtracks配列のindexは一致する
       container.querySelectorAll('.track-item').forEach((li, i) => {
         const track = tracks[i];
-        li.querySelector('.track-play').addEventListener('click', () => actions.onTrackTap(track.id));
+        li.querySelector('.track-play').addEventListener('click', () => actions.onTrackTap(track.id, shuffleOn));
       });
 
       if (showPlayButton) {
-        container.querySelector('#play-start-btn').addEventListener('click', actions.onStartPlayback);
+        const shuffleBtn = container.querySelector('#shuffle-btn');
+        shuffleBtn.addEventListener('click', () => {
+          shuffleOn = !shuffleOn;
+          shuffleBtn.classList.toggle('active', shuffleOn);
+          shuffleBtn.setAttribute('aria-pressed', String(shuffleOn));
+        });
+        container.querySelector('#play-start-btn').addEventListener('click', () => actions.onStartPlayback(shuffleOn));
       }
     }
   }

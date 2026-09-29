@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildInitialOrder, buildOrderStartingAt, reshuffleAvoidingRepeat, shuffle } from '../js/playback-order.js';
+import {
+  buildInitialOrder, buildOrderStartingAt, reshuffleAvoidingRepeat, shuffle,
+  buildSequentialOrder, buildSequentialOrderStartingAt,
+} from '../js/playback-order.js';
 
 test('shuffle: 元の配列を変更せず、要素の集合は変わらない', () => {
   const original = [0, 1, 2, 3, 4];
@@ -48,4 +51,24 @@ test('buildOrderStartingAt: 指定した曲が先頭になり、残りは重複�
 test('buildOrderStartingAt: 1曲のみの場合はその曲だけの配列になる', () => {
   const order = buildOrderStartingAt(1, 0);
   assert.deepEqual(order, [0]);
+});
+
+test('buildSequentialOrder: インデックスの順番どおりに並ぶ（シャッフルしない。CR-038）', () => {
+  assert.deepEqual(buildSequentialOrder(5), [0, 1, 2, 3, 4]);
+});
+
+test('buildSequentialOrder: 0曲の場合は空配列', () => {
+  assert.deepEqual(buildSequentialOrder(0), []);
+});
+
+test('buildSequentialOrderStartingAt: 指定した曲を先頭に、表示順のまま一巡する（CR-038）', () => {
+  assert.deepEqual(buildSequentialOrderStartingAt(5, 2), [2, 3, 4, 0, 1]);
+});
+
+test('buildSequentialOrderStartingAt: 先頭（インデックス0）を指定すると変化しない', () => {
+  assert.deepEqual(buildSequentialOrderStartingAt(4, 0), [0, 1, 2, 3]);
+});
+
+test('buildSequentialOrderStartingAt: 1曲のみの場合はその曲だけの配列になる', () => {
+  assert.deepEqual(buildSequentialOrderStartingAt(1, 0), [0]);
 });

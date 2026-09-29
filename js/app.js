@@ -18,6 +18,7 @@ import {
   fetchArtistsLimited, fetchAlbumsByTerm, fetchArtistAlbums, fetchAlbumTracks,
 } from './staged-search-api.js';
 import { orderAlbumTracks } from './album-playback.js';
+import { sortTracksByArtist } from './playlist-sort.js';
 import { PreviewPlayer } from './preview-player.js';
 import { PlaylistPlayer } from './playlist-player.js';
 import { renderPlaylistList } from './views/playlist-list-view.js';
@@ -236,16 +237,20 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       playlistView = { screen: 'list' };
       showPlaylistList();
     },
-    onStartPlayback: () => {
-      startPlaylistPlayback(playlistId, available);
+    onStartPlayback: (shuffleOn) => {
+      // シャッフルOFF時は曲一覧の表示順（アーティスト名順）で再生する（CR-038、FR-2.16）
+      const ordered = sortTracksByArtist(available);
+      startPlaylistPlayback(playlistId, ordered, undefined, shuffleOn);
       // 再生ボタンを非表示にし、ミニプレイヤーに操作を委ねるため、詳細画面を再描画する（CR-016）。
       // 曲情報は取得済みのため、再取得はしない。
       renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
-    onTrackTap: (trackId) => {
-      // タップした曲を1曲目にして再生を始める（CR-032、FR-2.13）
-      const startIndex = available.findIndex((t) => t.id === trackId);
-      startPlaylistPlayback(playlistId, available, startIndex === -1 ? undefined : startIndex);
+    onTrackTap: (trackId, shuffleOn) => {
+      // タップした曲を1曲目にして再生を始める（CR-032、FR-2.13）。シャッフルOFF時は表示順のまま
+      // タップした曲の次から連続再生するため、表示順（アーティスト名順）で並べたtracksを使う（CR-038）
+      const ordered = sortTracksByArtist(available);
+      const startIndex = ordered.findIndex((t) => t.id === trackId);
+      startPlaylistPlayback(playlistId, ordered, startIndex === -1 ? undefined : startIndex, shuffleOn);
       renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
     onSaveEdit: async (newName, remainingTrackIds) => {
@@ -268,12 +273,13 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
   renderMiniPlayerBar();
 }
 
-function startPlaylistPlayback(playlistId, tracks, startIndex) {
+function startPlaylistPlayback(playlistId, tracks, startIndex, shuffleOn = true) {
   // 不具合修正：試聴中に本編再生を始めても試聴の音声・ミニプレイヤー表示が残ってしまうため、
   // startAlbumPlaybackと同様、本編再生の開始前に試聴を止める（FR-1.6）
   previewPlayer.stop();
   disposeCurrentPlayer();
   currentPlayer = new PlaylistPlayer(tracks, {
+    shuffle: shuffleOn,
     onTrackChange: (track) => {
       updateMediaSessionMetadata(track);
       reflectPlaybackState();
@@ -292,6 +298,11 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
   disposeCurrentPlayer();
   const ordered = orderAlbumTracks(tracks, shuffle);
   currentPlayer = new PlaylistPlayer(ordered, {
+    // orderAlbumTracksで既に並び順（収録順／シャッフル済み）を決定済みのため、
+    // PlaylistPlayer側ではさらに並び替えず、orderedの並び順のまま再生する（不具合修正：
+    // shuffle:falseを指定していないと、PlaylistPlayer自身が初期順序を毎回ランダムに
+    // 組み直してしまい、シャッフルOFFでも実際には順不同で再生されていた）
+    shuffle: false,
     onTrackChange: (track) => {
       updateMediaSessionMetadata(track);
       reflectPlaybackState();

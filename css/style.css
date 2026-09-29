@@ -297,8 +297,15 @@ button.primary {
   background: var(--btn-bg);
   color: var(--fg);
 }
+/* フェーズ24（CR-039）：選択済みのときは背景を赤く塗る方式をやめ、＋の文字色だけをアクセント
+   カラー（青）に変える方式にした（背景はis-selectedでも変化しない） */
 .toggle-add-btn.is-selected {
-  background: var(--danger);
+  color: var(--accent);
+}
+/* フェーズ24（CR-041）：プレイリスト編集モードのマイナスボタンは、既存の削除系アイコン
+   （var(--danger)、ややくすんだ赤）より彩度の高い、鮮やかな赤を専用に用いる */
+.track-remove-btn {
+  background: #ff3b30;
   color: #fff;
 }
 
@@ -446,6 +453,11 @@ button.primary {
   flex-shrink: 0;
 }
 
+/* フェーズ24（CR-040）：追加先を選ぶ一覧のプレイリスト名は、曲数表示より少し大きくして読みやすくする */
+.playlist-picker-item .item-name {
+  font-size: 1.05rem;
+}
+
 /* フェーズ23（実機確認フィードバック）：前回追加したプレイリストに付ける小さな案内ラベルは、
    一覧の並び順は変えず、行の右端に表示する（.item-mainがflex:1のため自然に右端へ寄る） */
 .picker-last-used-badge {
@@ -470,10 +482,14 @@ button.primary {
   text-align: right;
   flex-shrink: 0;
 }
-/* フェーズ22（仕様見直し）：ジャケットが無く行が低くなっていたため、ジャケット画像付きの行
-   （曲名＋アーティスト名の2行分、border-box込みで約64px）と高さを揃える */
+/* フェーズ22（仕様見直し）で、ジャケットが無く行が低くなっていたため高さを揃えようとしたが、
+   フェーズ23の＋ボタン導入に伴う行の再構成でmin-height指定が過大（64px）になり、
+   ジャケット付きの行より高くなってしまっていた（CR-042）。
+   ジャケット画像1個分（44px）を置いたと仮定した高さ（.list-item-mainのpadding 6px×2を含めて
+   56px）を確保することで、ジャケット付きの行と同じ高さ（外側の.list-itemのpadding 8px×2と
+   合わせて合計72px）になるよう修正した */
 .track-item-compact .track-play {
-  min-height: 64px;
+  min-height: 56px;
 }
 
 /* --- フェーズ16（CR-018）：続きがあることを示す、視認できる下矢印のガイド表示 --- */

@@ -15,8 +15,12 @@
 //   FR-4.15（3曲連続失敗で停止） → failure-tracker.js
 //   FR-4.11（再生中の曲情報を表示に反映）→ onTrackChange コールバック
 //   FR-4.12（ロック画面/通知からの操作）→ Media Session APIのセットアップ
+//   FR-2.15, FR-2.16（プレイリスト詳細のシャッフルON/OFF切り替え。CR-038）→ options.shuffle
 
-import { buildInitialOrder, buildOrderStartingAt, reshuffleAvoidingRepeat } from './playback-order.js';
+import {
+  buildInitialOrder, buildOrderStartingAt, reshuffleAvoidingRepeat,
+  buildSequentialOrder, buildSequentialOrderStartingAt,
+} from './playback-order.js';
 import { PlaybackHistory } from './playback-history.js';
 import { ConsecutiveFailureTracker } from './failure-tracker.js';
 
@@ -34,9 +38,12 @@ export class PlaylistPlayer {
    * @param {(playing: boolean) => void} [options.onPlayStateChange]
    * @param {() => void} [options.onFailureStop] 3曲連続失敗で停止したときに呼ばれる（FR-4.15）
    * @param {number} [options.failureThreshold]
+   * @param {boolean} [options.shuffle] falseを指定すると、渡されたtracksの並び順のまま再生する
+   *   （シャッフルしない。CR-038、FR-2.16）。省略時はtrue（FR-4.2の「毎回ランダム」が既定）
    */
   constructor(tracks, options = {}) {
     this.tracks = tracks || [];
+    this.shuffle = options.shuffle !== false;
     this.crossfadeSeconds = options.crossfadeSeconds ?? DEFAULT_CROSSFADE_SECONDS;
     this._createAudio = options.createAudio || (() => new Audio());
     this._createAudioContext = options.createAudioContext
@@ -46,7 +53,9 @@ export class PlaylistPlayer {
     this._onFailureStop = options.onFailureStop || (() => {});
     this._failureTracker = new ConsecutiveFailureTracker(options.failureThreshold || DEFAULT_FAILURE_THRESHOLD);
 
-    this.order = this.tracks.length ? buildInitialOrder(this.tracks.length) : [];
+    this.order = this.tracks.length
+      ? (this.shuffle ? buildInitialOrder(this.tracks.length) : buildSequentialOrder(this.tracks.length))
+      : [];
     this.pos = -1;
     this.history = new PlaybackHistory();
     this.playing = false;
@@ -112,14 +121,16 @@ export class PlaylistPlayer {
   /**
    * 再生を開始する。0曲の場合は何もしない（FR-4.14）。
    * @param {number} [startTrackIndex] 指定すると、その曲（tracks配列でのインデックス）を1曲目にして
-   *   再生を始める（CR-032）。2曲目以降は残りの曲をシャッフルした順になる。省略時は全曲シャッフルの
-   *   先頭から始まる（従来通り）
+   *   再生を始める（CR-032）。シャッフル有効なら2曲目以降は残りの曲をシャッフルした順、無効なら
+   *   tracksの並び順のまま指定した曲の次から順になる（CR-038）。省略時は先頭から始まる（従来通り）
    */
   async start(startTrackIndex) {
     if (this.isEmpty) return;
     this.stopped = false;
     if (startTrackIndex != null) {
-      this.order = buildOrderStartingAt(this.tracks.length, startTrackIndex);
+      this.order = this.shuffle
+        ? buildOrderStartingAt(this.tracks.length, startTrackIndex)
+        : buildSequentialOrderStartingAt(this.tracks.length, startTrackIndex);
     }
     this.pos = 0;
     await this._playAt(this.order[this.pos], { isFirst: true, fromHistory: false });
@@ -210,8 +221,13 @@ export class PlaylistPlayer {
   _nextOrderPos() {
     let next = this.pos + 1;
     if (next >= this.order.length) {
-      const lastTrackIndex = this.order[this.pos];
-      this.order = reshuffleAvoidingRepeat(this.tracks.length, lastTrackIndex);
+      if (this.shuffle) {
+        const lastTrackIndex = this.order[this.pos];
+        this.order = reshuffleAvoidingRepeat(this.tracks.length, lastTrackIndex);
+      } else {
+        // シャッフル無効時は、一巡したら同じ並び順で先頭から繰り返す（CR-038）
+        this.order = buildSequentialOrder(this.tracks.length);
+      }
       next = 0;
     }
     return next;
