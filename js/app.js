@@ -36,9 +36,16 @@ const miniPlayerEl = document.getElementById('mini-player');
 // --- 試聴（FR-1.5）：CR-020/023でミニプレイヤーにも表示する ---
 let previewTrack = null; // 試聴中の曲（表示用データ）。試聴していなければnull
 const realPreviewPlayer = new PreviewPlayer({
-  onStop: () => {
-    previewTrack = null;
-    renderMiniPlayerBar();
+  // 不具合修正：別の曲へ切り替える際、PreviewPlayer.play()は内部でstop()を呼び、
+  // 直前の曲のonStopが同期的に発火する（新しい曲のpreviewTrackへの代入より後に実行される）。
+  // ここでstoppedIdを見ずに一律previewTrack=nullとしていたため、切り替え後のpreviewTrackが
+  // 消されてしまい、他の曲をタップしても再生されないように見える不具合があった。
+  // 「いま止めようとしている曲」が、表示中のpreviewTrackと同じ場合だけクリアする。
+  onStop: (stoppedId) => {
+    if (previewTrack && previewTrack.id === stoppedId) {
+      previewTrack = null;
+      renderMiniPlayerBar();
+    }
   },
 });
 // FR-1.6: 試聴が始まったら、再生中のプレイリスト／アルバム一時再生を一時停止する。
@@ -262,6 +269,9 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
 }
 
 function startPlaylistPlayback(playlistId, tracks, startIndex) {
+  // 不具合修正：試聴中に本編再生を始めても試聴の音声・ミニプレイヤー表示が残ってしまうため、
+  // startAlbumPlaybackと同様、本編再生の開始前に試聴を止める（FR-1.6）
+  previewPlayer.stop();
   disposeCurrentPlayer();
   currentPlayer = new PlaylistPlayer(tracks, {
     onTrackChange: (track) => {
