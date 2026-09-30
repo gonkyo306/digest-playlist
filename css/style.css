@@ -162,11 +162,14 @@ h1 { font-size: 1.1rem; }
 /* フェーズ21（不具合修正）：.list-item-mainは既定で縦並び（プレイリスト名＋曲数等）だが、
    種別アイコン・ジャケット・番号とタイトルを横並びで見せたい行（アーティスト・アルバムの各行）
    ではこちらを使い、横並びに上書きする（CR-031/034）。フェーズ23：追加先選択の各行
-   （playlist-picker-item）も、名前・曲数とバッジを横並びにするため同様に扱う */
+   （playlist-picker-item）も、名前・曲数とバッジを横並びにするため同様に扱う。
+   フェーズ32（CR-055）：プレイリスト一覧の各行（playlist-open）も、代表画像を横並びで
+   表示するため同様に扱う */
 .track-play,
 .result-artist-open,
 .result-album-open,
-.playlist-picker-item {
+.playlist-picker-item,
+.playlist-open {
   flex-direction: row;
   align-items: center;
   gap: 8px;
@@ -503,6 +506,22 @@ h1 { font-size: 1.1rem; }
   transition: color 0.4s ease, transform 0.3s ease;
 }
 
+/* フェーズ32（CR-057）：追加先プレイリスト常時表示の上に添える、これが追加先であることを
+   示す小さなラベル。プレイリストが0件の場合のガイド表示（.dest-header-guide）はそれ自体で
+   意味が伝わるため対象外 */
+.dest-header-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  max-width: 55vw;
+}
+.dest-header-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding-right: 4px;
+}
 /* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19） --- */
 .dest-header {
   display: flex;

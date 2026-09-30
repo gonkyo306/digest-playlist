@@ -8,14 +8,31 @@
 // 転用した（検索ボタンは設置せず、入力するたびに動的に絞り込む。CR-046と対になる方針）。
 
 import { iconOnly } from './icons.js';
+import { blobToUrl } from '../blob-url-cache.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /**
+ * プレイリストの代表画像（FR-2.10と同じ優先順位で解決済みのもの）を、一覧行のジャケット画像として
+ * 表示するHTMLを組み立てる（CR-055）。
+ * @param {object} playlist
+ * @param {{source: 'custom'|'track'|'none', blob?: Blob, url?: string}} [artwork]
+ */
+function playlistArtworkHtml(playlist, artwork) {
+  if (artwork?.source === 'custom' && artwork.blob) {
+    return `<img src="${escapeHtml(blobToUrl(playlist.id, artwork.blob))}" alt="" class="artwork-sm">`;
+  }
+  if (artwork?.source === 'track' && artwork.url) {
+    return `<img src="${escapeHtml(artwork.url)}" alt="" class="artwork-sm">`;
+  }
+  return `<div class="artwork-sm hero-artwork-placeholder">${iconOnly('disc')}</div>`;
+}
+
+/**
  * @param {HTMLElement} container
- * @param {Array<object>} playlists
+ * @param {Array<object>} playlists 各要素はartwork（FR-2.10の優先順位で解決済み）を含む
  * @param {{onOpen: Function, onCreateNew: Function}} actions
  */
 export function renderPlaylistList(container, playlists, actions) {
@@ -37,8 +54,11 @@ export function renderPlaylistList(container, playlists, actions) {
         : shown.map((m) => `
           <li class="list-item" data-id="${escapeHtml(m.id)}">
             <button class="list-item-main playlist-open" data-id="${escapeHtml(m.id)}">
-              <span class="item-name">${escapeHtml(m.name)}</span>
-              <span class="item-sub">${m.trackIds.length}曲</span>
+              ${playlistArtworkHtml(m, m.artwork)}
+              <div class="item-main">
+                <span class="item-name">${escapeHtml(m.name)}</span>
+                <span class="item-sub">${m.trackIds.length}曲</span>
+              </div>
             </button>
           </li>
         `).join('');

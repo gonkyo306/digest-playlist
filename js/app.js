@@ -201,7 +201,10 @@ async function showPlaylistList() {
   playlistView = { screen: 'list' };
   const playlists = await getAllPlaylists();
   playlists.sort((a, b) => b.updatedAt - a.updatedAt);
-  renderPlaylistList(playlistPaneEl, playlists, {
+  // CR-055（FR-2.9）：一覧の各行に代表画像を表示するため、表示前に解決しておく
+  const artworkMap = await resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds);
+  const withArtwork = playlists.map((p) => ({ ...p, artwork: artworkMap.get(p.id) }));
+  renderPlaylistList(playlistPaneEl, withArtwork, {
     onOpen: (id) => {
       playlistView = { screen: 'detail', playlistId: id };
       showPlaylistDetail(id);
