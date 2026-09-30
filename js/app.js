@@ -369,6 +369,26 @@ async function handleInstantAdd(playlistId, trackId) {
   return { added: result.added };
 }
 
+/**
+ * その場（今回の＋タップ）で追加した曲の、取り消し可能なチップ（FR-1.21）をタップした時点で、
+ * その1曲だけを追加先プレイリストから取り消す（フェーズ32、CR-056）。
+ * @param {string} playlistId
+ * @param {string|number} trackId
+ * @returns {Promise<{removed: boolean}>}
+ */
+async function handleUndoRemove(playlistId, trackId) {
+  const playlist = await getPlaylist(playlistId);
+  if (!playlist) return { removed: false };
+  const updated = removeTrackFromPlaylist(playlist, trackId);
+  await savePlaylist(updated);
+  if (playlistView.screen === 'detail' && playlistView.playlistId === playlistId) {
+    showPlaylistDetail(playlistId);
+  } else if (playlistView.screen === 'list') {
+    showPlaylistList();
+  }
+  return { removed: true };
+}
+
 let searchViewApi = null;
 
 function mountSearchTab() {
@@ -388,6 +408,7 @@ function mountSearchTab() {
     onResolveArtwork: (playlist) => resolvePlaylistArtwork(playlist, fetchTrackInfoByIds),
     onResolveArtworkForAll: (playlists) => resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds),
     onAddTrack: (playlistId, trackId) => handleInstantAdd(playlistId, trackId),
+    onRemoveTrack: (playlistId, trackId) => handleUndoRemove(playlistId, trackId),
     onCreatePlaylist: async (name, imageBlob) => {
       const created = createPlaylist(name, imageBlob);
       await savePlaylist(created);

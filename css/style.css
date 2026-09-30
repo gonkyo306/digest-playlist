@@ -499,6 +499,35 @@ h1 { font-size: 1.1rem; }
   white-space: nowrap;
 }
 
+/* フェーズ32（CR-056、FR-1.21）：その場で追加した曲の、取り消し可能なチップ。
+   .added-badgeと同じ見た目（青いアウトラインのピル型）をベースに、右側に塗りつぶしの
+   ×アイコンを添えて「タップして取り消せる」ことを示す */
+.added-badge-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 1px 4px 1px 8px;
+  background: none;
+  white-space: nowrap;
+}
+.added-badge-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.added-badge-x svg { width: 9px; height: 9px; }
+
 /* フェーズ28（CR-047）：＋ボタンをタップした瞬間、チェックアイコンへ余韻を残しながら変化させる */
 .toggle-add-btn.add-btn-confirmed {
   color: var(--accent);

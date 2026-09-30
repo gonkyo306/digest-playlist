@@ -731,7 +731,7 @@ CR-053（OSの戻る操作対応）は、既存の画面遷移の仕組み全体
 
 ---
 
-## フェーズ32：CR-055〜057（プレイリスト一覧の代表画像・検索の追加済み表示の見直し・追加先ラベル）
+## フェーズ32：CR-055〜058（プレイリスト一覧の代表画像・検索の追加済み表示の見直し・追加先ラベル・アプリアイコン差し替え）
 
 ユーザーから3件の変更要求を受け、CR-055〜057として登録した。CR-055・CR-057は仕様が明確なため即座に実装し、CR-056は見た目の具体案を画面モックで確認してから確定する。
 
@@ -752,19 +752,29 @@ CR-053（OSの戻る操作対応）は、既存の画面遷移の仕組み全体
 - `js/views/search-view.js`の`destinationHeaderHtml()`で、追加先が存在する場合（プレイリストが1件以上ある場合）は、`.dest-header-wrap`で囲み、その中に「追加先」という小さな文字ラベル（`.dest-header-label`）を、既存のジャケット＋名前ボタンの上に配置する。プレイリストが0件のときのガイド表示（`.dest-header-guide`、CR-054のピル型ボタン）はそれ自体で意味が伝わるため対象外とした
 - `css/style.css`に`.dest-header-wrap`（縦並び・右寄せ）・`.dest-header-label`（`--muted`色、0.65rem）を新設
 
-### CR-056：検索タブの「追加済み」表示の見直し（仕様検討中、実装未着手）
+### CR-056：検索タブの「追加済み」表示の見直し（実装完了）
 - 現状（CR-047時点の実装）：＋タップ→即座にチェックアイコンへ変化（余韻のトランジション）→650ms後に、画面表示時点で追加済みだった曲と全く同じ「追加済み」バッジ（`js/views/track-row.js`の`addControlHtml`）に置き換わる。このバッジはタップしても何も起きない（FR-1.20）
 - ユーザーの指摘：「その場で追加した曲」が「元から追加済みだった曲」と見分けが付かず、かつ取り消す手段が無い
-- 対応方針：「その場で追加した曲」の終着状態を、既存のFR-1.20バッジとは別の、取り消し可能な表示に変更する。具体的な見た目（チップ形状・アイコン・取り消し操作の位置等）は複数案を画面モックで提示し、ユーザーが選んだ案でFR-1.12・FR-1.20の改訂内容とテストケースを確定してから実装する
-- 実装時の見込み：`js/views/track-row.js`の`bindTrackRowEvents`内、650ms後に「追加済み」バッジへ置き換えている箇所を、新しい「取り消し可能」状態へ置き換える処理に変更し、そのUIから`onAdd`と対になる`onRemove`（またはそれに相当する取り消し処理）を呼べるようにする必要がある見込み
+- 画面モック3案（A：塗りつぶし「追加済み ×」チップ／B：チェック表示＋独立した「取消」ボタン／C：既存バッジに近い見た目＋小さな×を内包）を提示し、ユーザーは案Cを選択
+- 実装内容：
+  - `js/views/track-row.js`：`addControlHtml(index, added, hideControl, justAdded)`に`justAdded`引数を追加し、trueなら`.added-badge-undo`（既存の`.added-badge`と同じアウトラインピル型に、塗りつぶしの丸に×アイコンを添えたもの）を返す。`bindTrackRowEvents`を`bindAddButton`/`bindUndoChip`の2つの内部関数に整理し、＋タップ→650ms後に`.added-badge-undo`へ置き換え→そのチップをタップすると`onRemove`を呼び、成立したら＋ボタンへ戻す（再度追加できるよう`bindAddButton`を再アタッチ）、という一連の流れを実装
+  - `js/views/search-view.js`：`justAddedIds`（クロージャのSet）を新設。`handleInstantAdd`成功時に追加、新設`handleInstantRemove`（`actions.onRemoveTrack`を呼ぶ）成功時に削除。一覧描画時は`added: addedIds.has(id) && !justAddedIds.has(id)`・`justAdded: justAddedIds.has(id)`を渡し、FR-1.20（静的バッジ）とFR-1.21（取り消し可能チップ）を区別する。`justAddedIds`は、`ensureDestinationLoaded`が解決した追加先のidが変わったとき、および追加先選択モーダル・作成ガイドから追加先を変更したときにリセットする
+  - `js/app.js`：`handleUndoRemove(playlistId, trackId)`を新設（`removeTrackFromPlaylist`を呼び保存、表示中の画面を更新）。`mountSearchTab`の`actions`に`onRemoveTrack`を追加
+  - `css/style.css`：`.added-badge-undo`（`.added-badge`と同じアウトラインピル型）・`.added-badge-x`（塗りつぶしの丸、`--accent`背景）を新設
+- テスト：Unitテスト124件成功（ロジック変更はUI中心のためPlaywrightで確認）。Playwrightスモークテストで、＋タップ後にチップが表示され静的バッジとは別要素になっていること、チップをタップすると＋ボタンに戻りプレイリストからも実際に削除されること（一覧画面の曲数表示で確認）、2曲目を追加した際も独立してチップが表示されることを確認
+
+### CR-058：アプリアイコンの差し替え（実装完了）
+- デザインキャンバス（Design）で検討・確定した最終案（円盤＋音符＋透過再生三角形＋プラス、青系グラデーション、年輪状の質感。通称「G-2最終調整版」）を、ヘッドレスブラウザ（Playwright）で実寸レンダリングし、`icons/icon-192.png`・`icons/icon-512.png`を差し替えた
+- `manifest.json`のicons定義自体は変更なし（ファイル名・サイズは同じ）。背景グラデーションは正方形いっぱいに敷き詰め、円の外側に透明な角を作らないようにした（OSによるアイコンのマスク処理に対応するため）
+- 見た目の差し替えのみで、既存のFR/NFRには影響しないため、acceptance-criteria.md・acceptance-test-cases.mdの改訂は無し
 
 ### 次のステップ
 1. `docs/change-request-form.md`にCR-055〜057を登録 → 完了
 2. `docs/acceptance-criteria.md`のFR-2.9・FR-1.19を改訂（CR-055・CR-057分） → 完了
 3. `docs/acceptance-test-cases.md`にTC-FR-2.9-3・TC-FR-1.19-8を追加 → 完了
 4. CR-055・CR-057を実装、Unitテスト・Playwrightスモークテストで確認 → 完了
-5. CR-056：画面モック（デザインキャンバス）を提示し、ユーザーの選択を待つ → 提示予定
-6. CR-056の選択後、acceptance-criteria.md・acceptance-test-cases.mdを確定し、実装する → 未着手
+5. CR-056：画面モック（デザインキャンバス）を提示し、ユーザーが案Cを選択 → 完了
+6. CR-056：acceptance-criteria.md（FR-1.12・FR-1.20改訂、FR-1.21新設）・acceptance-test-cases.md（TC-FR-1.20-3・TC-FR-1.21-1〜4）を確定し、実装・テスト → 完了
 
 ---
 
@@ -777,7 +787,7 @@ CR-001〜CR-035の実装（フェーズ7〜21）と、フェーズ22（実機使
 3. CR-016〜CR-042分の受入テスト（`acceptance-test-cases.md`で「未実施（CR-0xxで追加）」となっている項目）
 4. CR-043〜049分の受入テスト（フェーズ28で実装完了。同様に「未実施（CR-0xxで追加。実装済み。フェーズ20で実施）」となっている項目）
 5. CR-050〜054分の受入テスト（フェーズ31で実装完了。同様に「未実施（CR-0xxで追加。実装済み。フェーズ20で実施）」となっている項目。TC-NFR-5.7-2・TC-NFR-5.8-2は実機での確認も必要）
-6. CR-055・CR-057分の受入テスト（フェーズ32で実装完了。同様に「未実施（CR-0xxで追加。実装済み。フェーズ20で実施）」となっている項目）。CR-056は画面モック確定・実装後に別途対象へ加えます
+6. CR-055〜057分の受入テスト（フェーズ32で実装完了。同様に「未実施（CR-0xxで追加。実装済み。フェーズ20で実施）」となっている項目）
 
 **現時点では着手しません**（ユーザー指示、2026-09-28）。
 
@@ -804,5 +814,5 @@ CR-001〜CR-035の実装（フェーズ7〜21）と、フェーズ22（実機使
 | `plan-cr-implementation.md` フェーズ29（CR-050〜053の対応計画） | **ドキュメント反映・対応計画の記載のみ完了**（change-request-form.md・acceptance-criteria.md・acceptance-test-cases.mdの改訂を実施。ユーザー指示により実装は未着手） |
 | `plan-cr-implementation.md` フェーズ30（CR-054のドキュメント反映） | **ドキュメント反映のみ完了**（change-request-form.md・acceptance-criteria.md・acceptance-test-cases.mdの改訂を実施。実装は未着手） |
 | `plan-cr-implementation.md` フェーズ31（CR-050〜054の実装） | **完了**（コード実装済み。新規`js/back-stack.js`でOSの戻る操作に対応。Unitテスト124件成功、Playwrightスモークテスト成功。フェーズ20の受入テストは未実施） |
-| `plan-cr-implementation.md` フェーズ32（CR-055〜057） | **一部完了**（CR-055・CR-057はコード実装済み。Unitテスト124件成功、Playwrightスモークテスト成功。CR-056は画面モックを提示し、ユーザーの選択待ち） |
+| `plan-cr-implementation.md` フェーズ32（CR-055〜058） | **完了**（CR-055〜058すべてコード実装済み。Unitテスト124件成功、Playwrightスモークテスト成功。フェーズ20の受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ20（全CR分の受入テスト） | **未着手**（ユーザー指示により、全実装完了後の現時点でも着手せず） |

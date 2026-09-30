@@ -13,6 +13,10 @@
 // （FR-1.12）。この常時表示をタップすると、追加先を変更するモーダル（FR-2.4）が開く。
 // プレイリストが1件も無い場合は、常時表示の位置にプレイリスト作成を促すガイドを表示する
 // （FR-1.19、FR-5.4の例外）。
+// フェーズ32（CR-056）：画面が表示された時点で既に追加済みだった曲（FR-1.20、静的な「追加済」
+// バッジ）と、その場（今回の＋タップ）で追加した曲（FR-1.21、取り消し可能なチップ）を区別する。
+// 後者はこのモジュール内のjustAddedIds（クロージャ変数）で管理し、追加先プレイリストを
+// 変更したときにリセットする。
 
 import {
   trackRowHtml, compactTrackRowHtml, artistRowHtml, albumRowHtml,
@@ -76,6 +80,9 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   // --- CR-047：現在の追加先プレイリスト（FR-1.19）。検索タブが再マウントされるまで保持する ---
   let currentDestination = null; // { id, name, trackIds, artwork } | null（プレイリストが1件も無い場合）
   let destinationLoaded = false;
+  // フェーズ32（CR-056、FR-1.21）：その場（今回の＋タップ）で追加した曲のtrackId集合。
+  // 追加先プレイリストが変わったらリセットする
+  let justAddedIds = new Set();
 
   function teardownObserver() {
     if (observer) {
@@ -88,6 +95,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
 
   async function ensureDestinationLoaded() {
     if (destinationLoaded) return;
+    const previousId = currentDestination?.id ?? null;
     const playlists = await actions.onGetPlaylists();
     if (playlists.length === 0) {
       currentDestination = null;
@@ -97,6 +105,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const artwork = await actions.onResolveArtwork(chosen);
       currentDestination = { ...chosen, artwork };
     }
+    // フェーズ32（FR-1.21）：追加先が変わったら「その場で追加した」記憶をリセットする
+    if ((currentDestination?.id ?? null) !== previousId) justAddedIds = new Set();
     destinationLoaded = true;
   }
 
@@ -143,6 +153,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
               ...created,
               artwork: imageBlob ? { source: 'custom', blob: imageBlob } : { source: 'none' },
             };
+            justAddedIds = new Set(); // フェーズ32（FR-1.21）：新しい追加先には「その場で追加した」曲はまだ無い
             onChanged();
           },
         });
@@ -160,6 +171,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       });
       if (chosenId && (!currentDestination || chosenId !== currentDestination.id)) {
         currentDestination = withArtwork.find((p) => p.id === chosenId) || currentDestination;
+        justAddedIds = new Set(); // フェーズ32（FR-1.21）：追加先を変更したらリセットする
         onChanged();
       }
     });
@@ -188,6 +200,21 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     const result = await actions.onAddTrack(currentDestination.id, track.id);
     if (result.added) {
       currentDestination = { ...currentDestination, trackIds: [...currentDestination.trackIds, track.id] };
+      justAddedIds.add(track.id); // フェーズ32（FR-1.21）：取り消し可能なチップの対象として記憶する
+    }
+    return result;
+  }
+
+  /** 取り消し可能なチップ（FR-1.21）のタップで、その場で追加した曲の追加を取り消す（フェーズ32） */
+  async function handleInstantRemove(track) {
+    if (!currentDestination) return { removed: false };
+    const result = await actions.onRemoveTrack(currentDestination.id, track.id);
+    if (result.removed) {
+      currentDestination = {
+        ...currentDestination,
+        trackIds: currentDestination.trackIds.filter((id) => id !== track.id),
+      };
+      justAddedIds.delete(track.id);
     }
     return result;
   }
@@ -225,7 +252,13 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       resultsEl.innerHTML = [
         ...artists.map((a, i) => artistRowHtml(a, i)),
         ...albums.map((a, i) => albumRowHtml(a, i)),
-        ...tracks.map((t, i) => trackRowHtml(t, i, { added: addedIds.has(t.id), hideAddControl: !currentDestination })),
+        ...tracks.map((t, i) => trackRowHtml(t, i, {
+          // フェーズ32（FR-1.20・FR-1.21）：その場で追加した曲は静的なaddedバッジではなく、
+          // 取り消し可能なjustAddedチップにする
+          added: addedIds.has(t.id) && !justAddedIds.has(t.id),
+          justAdded: justAddedIds.has(t.id),
+          hideAddControl: !currentDestination,
+        })),
       ].join('');
 
       bindArtistRowEvents(resultsEl, artists, (artist) => {
@@ -242,6 +275,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       bindTrackRowEvents(resultsEl, tracks, {
         previewPlayer,
         onAdd: (track) => handleInstantAdd(track),
+        onRemove: (track) => handleInstantRemove(track),
       });
 
       teardownObserver();
@@ -447,11 +481,16 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       if (!listEl) return; // mountDestinationHeaderの解決待ち中に画面遷移済み
       const addedIds = currentDestination ? new Set(currentDestination.trackIds) : new Set();
       listEl.innerHTML = albumTracks
-        .map((t, i) => compactTrackRowHtml(t, i, { added: addedIds.has(t.id), hideAddControl: !currentDestination }))
+        .map((t, i) => compactTrackRowHtml(t, i, {
+          added: addedIds.has(t.id) && !justAddedIds.has(t.id),
+          justAdded: justAddedIds.has(t.id),
+          hideAddControl: !currentDestination,
+        }))
         .join('');
       bindTrackRowEvents(listEl, albumTracks, {
         previewPlayer,
         onAdd: (track) => handleInstantAdd(track),
+        onRemove: (track) => handleInstantRemove(track),
       });
     }
     renderTrackList();

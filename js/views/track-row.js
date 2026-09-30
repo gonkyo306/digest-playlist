@@ -6,8 +6,9 @@
 // 試聴専用のアイコンは表示しない。
 // フェーズ28（CR-047）：複数選択→一括追加の方式を廃止し、＋ボタンをタップした時点で即座に
 // 現在の追加先プレイリストへ1曲だけ追加する方式に変更した。追加と同時に、＋アイコンは
-// チェックアイコンへ、余韻を残すアニメーションを伴って変化し、その後「追加済」バッジに置き換わる
-// （FR-1.20）。表示された時点で既に追加先に含まれている曲は、最初から「追加済」バッジを表示する。
+// チェックアイコンへ、余韻を残すアニメーションを伴って変化し、その後「取り消し可能」な表示に
+// 置き換わる（フェーズ32／CR-056、FR-1.21）。表示された時点で既に追加先に含まれている曲は、
+// 最初から静的な「追加済」バッジを表示する（FR-1.20、取り消し不可）。
 // フェーズ28（CR-048）：行の意匠はカードから横線区切りに変更（CSS側で対応）。アルバム収録曲一覧の
 // 番号表示から末尾のピリオドを削除した（「1.」ではなく「1」）。
 
@@ -18,11 +19,18 @@ function escapeHtml(str) {
 }
 
 /**
- * ＋ボタン、「追加済」バッジ、または何も表示しない（追加先プレイリストが1件も無い場合。CR-054）の
- * HTMLを組み立てる（FR-1.12・FR-1.20）。
+ * ＋ボタン、静的な「追加済」バッジ（FR-1.20）、取り消し可能なチップ（FR-1.21、フェーズ32／CR-056）、
+ * または何も表示しない（追加先プレイリストが1件も無い場合。CR-054）のHTMLを組み立てる。
+ * @param {number|string} index
+ * @param {boolean} added 画面が表示された時点で既に追加先に含まれていたか（FR-1.20。取り消し不可）
+ * @param {boolean} hideControl 追加先プレイリストが1件も無いため何も表示しない（CR-054）
+ * @param {boolean} justAdded その場（今回の＋タップ）で追加した曲か（FR-1.21。取り消し可能）
  */
-function addControlHtml(index, added, hideControl) {
+function addControlHtml(index, added, hideControl, justAdded) {
   if (hideControl) return '';
+  if (justAdded) {
+    return `<button type="button" class="added-badge-undo" data-index="${index}" aria-label="追加を取り消す">追加済<span class="added-badge-x">${iconOnly('close')}</span></button>`;
+  }
   if (added) {
     return '<span class="added-badge" aria-label="追加済み">追加済</span>';
   }
@@ -33,12 +41,12 @@ function addControlHtml(index, added, hideControl) {
  * 曲1件分の行（＋ボタンのタップで、現在の追加先プレイリストへ即座に追加する。行タップで試聴の開始／停止）。
  * @param {{id, title, artist, album, artwork}} track
  * @param {number} index
- * @param {{added?: boolean, hideAddControl?: boolean}} [options] addedは、表示された時点で既に
- *   追加先プレイリストに含まれているか。hideAddControlは、追加先プレイリストが1件も無い場合に
- *   ＋ボタン自体を表示しない（CR-054、FR-1.12）
+ * @param {{added?: boolean, hideAddControl?: boolean, justAdded?: boolean}} [options] addedは、表示された時点で既に
+ *   追加先プレイリストに含まれているか（FR-1.20）。hideAddControlは、追加先プレイリストが1件も無い場合に
+ *   ＋ボタン自体を表示しない（CR-054、FR-1.12）。justAddedは、その場で追加した曲か（FR-1.21）
  */
 export function trackRowHtml(track, index, options = {}) {
-  const { added = false, hideAddControl = false } = options;
+  const { added = false, hideAddControl = false, justAdded = false } = options;
   return `
     <li class="list-item track-item" data-index="${index}">
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
@@ -49,7 +57,7 @@ export function trackRowHtml(track, index, options = {}) {
           <div class="item-sub">${escapeHtml(track.artist)}${track.album ? ` / ${escapeHtml(track.album)}` : ''}</div>
         </div>
       </button>
-      ${addControlHtml(index, added, hideAddControl)}
+      ${addControlHtml(index, added, hideAddControl, justAdded)}
     </li>
   `;
 }
@@ -60,10 +68,10 @@ export function trackRowHtml(track, index, options = {}) {
  * 番号は数字のみを表示し、末尾にピリオドは付けない（CR-048）。
  * @param {{id, title}} track
  * @param {number} index
- * @param {{added?: boolean, hideAddControl?: boolean}} [options]
+ * @param {{added?: boolean, hideAddControl?: boolean, justAdded?: boolean}} [options]
  */
 export function compactTrackRowHtml(track, index, options = {}) {
-  const { added = false, hideAddControl = false } = options;
+  const { added = false, hideAddControl = false, justAdded = false } = options;
   return `
     <li class="list-item track-item track-item-compact" data-index="${index}">
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
@@ -72,7 +80,7 @@ export function compactTrackRowHtml(track, index, options = {}) {
           <div class="item-name">${escapeHtml(track.title)}</div>
         </div>
       </button>
-      ${addControlHtml(index, added, hideAddControl)}
+      ${addControlHtml(index, added, hideAddControl, justAdded)}
     </li>
   `;
 }
@@ -117,16 +125,19 @@ export function albumRowHtml(album, index, options = {}) {
 }
 
 /**
- * トラック行のイベント（試聴の開始／停止・＋ボタンでの即時追加）を結びつける。
- * 行タップ（＋ボタン部分を除く）で、その曲の試聴を開始／停止する（CR-033）。
+ * トラック行のイベント（試聴の開始／停止・＋ボタンでの即時追加・取り消し可能チップでの取消）を
+ * 結びつける。行タップ（＋ボタン部分を除く）で、その曲の試聴を開始／停止する（CR-033）。
  * ＋ボタンをタップすると、即座にonAddを呼んで追加する。追加が成立したら、＋アイコンを
- * 一瞬チェックアイコンに変化させてから（余韻）、「追加済」バッジに置き換える（CR-047）。
+ * 一瞬チェックアイコンに変化させてから（余韻）、取り消し可能なチップに置き換える
+ * （CR-047／フェーズ32・CR-056、FR-1.21）。このチップをタップするとonRemoveを呼び、
+ * 成立したら＋ボタンの表示に戻す。
  * @param {HTMLElement} listEl trackRowHtml/compactTrackRowHtmlをmapしたulなどの要素
  * @param {Array<object>} tracks
  * @param {{previewPlayer: import('../preview-player.js').PreviewPlayer,
- *   onAdd: (track: object) => Promise<{added: boolean}>}} handlers
+ *   onAdd: (track: object) => Promise<{added: boolean}>,
+ *   onRemove: (track: object) => Promise<{removed: boolean}>}} handlers
  */
-export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd }) {
+export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRemove }) {
   listEl.querySelectorAll('.track-play').forEach((btn) => {
     const track = tracks[Number(btn.dataset.index)];
     btn.addEventListener('click', () => {
@@ -138,10 +149,30 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd }) {
     });
   });
 
-  listEl.querySelectorAll('.toggle-add-btn').forEach((btn) => {
-    const track = tracks[Number(btn.dataset.index)];
+  function bindUndoChip(chipBtn, track, index) {
+    chipBtn.addEventListener('click', async () => {
+      chipBtn.disabled = true;
+      let result;
+      try {
+        result = await onRemove(track);
+      } catch {
+        result = { removed: false };
+      }
+      if (!chipBtn.isConnected) return; // 待っている間に画面が切り替わっていれば何もしない
+      if (!result || !result.removed) {
+        chipBtn.disabled = false;
+        return;
+      }
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = addControlHtml(index, false, false, false);
+      const plusBtn = wrapper.firstElementChild;
+      chipBtn.replaceWith(plusBtn);
+      bindAddButton(plusBtn, track, index);
+    });
+  }
+
+  function bindAddButton(btn, track, index) {
     btn.addEventListener('click', async () => {
-      const index = btn.dataset.index;
       btn.disabled = true;
       btn.classList.add('add-btn-confirmed');
       btn.innerHTML = iconOnly('check');
@@ -162,10 +193,22 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd }) {
       setTimeout(() => {
         if (!btn.isConnected) return;
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = addControlHtml(index, true);
-        btn.replaceWith(wrapper.firstElementChild);
+        wrapper.innerHTML = addControlHtml(index, false, false, true);
+        const chipBtn = wrapper.firstElementChild;
+        btn.replaceWith(chipBtn);
+        bindUndoChip(chipBtn, track, index);
       }, 650);
     });
+  }
+
+  listEl.querySelectorAll('.toggle-add-btn').forEach((btn) => {
+    const track = tracks[Number(btn.dataset.index)];
+    bindAddButton(btn, track, btn.dataset.index);
+  });
+
+  listEl.querySelectorAll('.added-badge-undo').forEach((btn) => {
+    const track = tracks[Number(btn.dataset.index)];
+    bindUndoChip(btn, track, btn.dataset.index);
   });
 }
 
