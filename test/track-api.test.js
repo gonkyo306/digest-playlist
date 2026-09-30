@@ -54,3 +54,28 @@ test('parseLookupResponse: 一部だけ取得できた場合、要求した順�
   assert.equal(available[0].id, 222);
   assert.deepEqual(unavailableIds, ['111', '333']);
 });
+
+test('parseLookupResponse: album（collectionName）・trackNumberを保持する (CR-064)', () => {
+  const json = {
+    results: [
+      {
+        wrapperType: 'track', trackId: 111, trackName: '曲A', artistName: 'アーティストA',
+        collectionName: 'アルバムX', trackNumber: 3, artworkUrl100: 'a.jpg', previewUrl: 'a.m4a',
+      },
+    ],
+  };
+  const { available } = parseLookupResponse(json, ['111']);
+  assert.equal(available[0].album, 'アルバムX');
+  assert.equal(available[0].trackNumber, 3);
+});
+
+test('parseLookupResponse: collectionName・trackNumberが無い場合は空文字・nullになる (CR-064)', () => {
+  const json = {
+    results: [
+      { wrapperType: 'track', trackId: 111, trackName: '曲A', artistName: 'アーティストA', artworkUrl100: 'a.jpg', previewUrl: 'a.m4a' },
+    ],
+  };
+  const { available } = parseLookupResponse(json, ['111']);
+  assert.equal(available[0].album, '');
+  assert.equal(available[0].trackNumber, null);
+});

@@ -9,8 +9,10 @@
 // フェーズ28（CR-047）：常時表示の追加先（FR-1.19）を変更するためのモーダルに位置づけを変更し、
 // 各行にそのプレイリストの代表画像（FR-2.10と同じ優先順位で解決済みのもの）を表示する。
 // 一覧自体は既存の縦並びリスト（.picker-list、スクロール可能）のデザインを踏襲する。
+// CR-069：オーバーレイ／ボックスの組み立てとスライドアニメーションはdialog.jsのbuildOverlay/
+// closeOverlayを共通利用する。
 
-import { enqueueDialog } from './dialog.js';
+import { enqueueDialog, buildOverlay, closeOverlay } from './dialog.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { iconOnly } from './icons.js';
 import { pushBackState, popBackState } from '../back-stack.js';
@@ -42,36 +44,31 @@ function pickerRowArtworkHtml(playlist, artwork) {
  */
 function openPickerList(playlists, lastUsedPlaylistId = null) {
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'dialog-overlay';
-    overlay.innerHTML = `
-      <div class="dialog-box" role="dialog" aria-modal="true">
-        <h2 class="dialog-title">追加先のプレイリストを選ぶ</h2>
-        ${playlists.length === 0
-          ? '<p class="dialog-message">プレイリストがまだありません。</p>'
-          : `<ul class="list picker-list">
-              ${playlists.map((m) => `
-                <li class="list-item">
-                  <button type="button" class="list-item-main playlist-picker-item" data-id="${escapeHtml(m.id)}">
-                    ${pickerRowArtworkHtml(m, m.artwork)}
-                    <span class="item-main">
-                      <span class="item-name">${escapeHtml(m.name)}</span>
-                      <span class="item-sub">${m.trackIds.length}曲</span>
-                    </span>
-                    ${m.id === lastUsedPlaylistId ? '<span class="picker-last-used-badge">前回追加</span>' : ''}
-                  </button>
-                </li>
-              `).join('')}
-            </ul>`}
-        <div class="dialog-actions">
-          <button type="button" class="dialog-btn dialog-cancel">キャンセル</button>
-        </div>
+    const overlay = buildOverlay(`
+      <h2 class="dialog-title">追加先のプレイリストを選ぶ</h2>
+      ${playlists.length === 0
+        ? '<p class="dialog-message">プレイリストがまだありません。</p>'
+        : `<ul class="list picker-list">
+            ${playlists.map((m) => `
+              <li class="list-item">
+                <button type="button" class="list-item-main playlist-picker-item" data-id="${escapeHtml(m.id)}">
+                  ${pickerRowArtworkHtml(m, m.artwork)}
+                  <span class="item-main">
+                    <span class="item-name">${escapeHtml(m.name)}</span>
+                    <span class="item-sub">${m.trackIds.length}曲</span>
+                  </span>
+                  ${m.id === lastUsedPlaylistId ? '<span class="picker-last-used-badge">前回追加</span>' : ''}
+                </button>
+              </li>
+            `).join('')}
+          </ul>`}
+      <div class="dialog-actions">
+        <button type="button" class="dialog-btn dialog-cancel">キャンセル</button>
       </div>
-    `;
-    document.body.appendChild(overlay);
+    `);
 
-    const finish = (id) => {
-      overlay.remove();
+    const finish = async (id) => {
+      await closeOverlay(overlay); // CR-069：下へスライドして消えるアニメーションを待つ
       resolve(id);
     };
     // CR-053（FR-6.3）：OSの戻る操作ではキャンセル相当の扱いにする

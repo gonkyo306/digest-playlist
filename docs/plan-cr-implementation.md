@@ -938,6 +938,21 @@ FR-4.10を全面改訂し、前の曲へ戻る機能自体を廃止する（戻�
 
 ---
 
+## フェーズ36：CR-063〜069の実装（2026-09-30、完了）
+
+ユーザー指示「今回の変更を実装して」を受け、フェーズ35で仕様確定したCR-063・064・066・067・068・069を実装した（CR-065は見送りのため対象外）。以降、本格運用開始まではユーザー指示によりmainブランチへ直接反映する運用に変更する。
+
+- **CR-063**：`js/playlist-player.js`の`_nextOrderPos()`を、一巡後に無条件で先頭へ戻す実装から、次が無ければ`null`を返す実装に変更。`_advanceForward()`が`null`を受けたら`_finishPlayback()`で自動停止する（`finished`フラグ、`onPlaybackComplete`コールバックを新設）。クロスフェード有効時も、最後の曲ではクロスフェードを開始せず自然に終わらせる（`_onTimeUpdate`）。`js/app.js`の`startPlaylistPlayback`/`startAlbumPlayback`に`onPlaybackComplete`を配線。`js/views/mini-player-view.js`は`finished`状態で一時停止表示＋次へボタン非活性化に対応。副次的に、1曲のみのプレイリストも1回再生後に自動停止するようになった（FR-4.14の「同じ曲を繰り返す」という旧挙動を置き換え）。
+- **CR-064**：`js/track-api.js`の`parseLookupResponse`で、iTunes Lookup APIレスポンスの`collectionName`・`trackNumber`を`album`・`trackNumber`として保持するよう変更。`js/playlist-sort.js`の`sortTracksByArtist`を拡張し、アーティスト名でソート後、同一アーティスト内をさらに同一アルバムでグルーピング（`groupByAlbum`、アルバムの位置は最初に追加した曲の順、アルバム内はトラック番号順）。プレイリストはtrackIdのみを保存し表示のたびに最新情報を取得し直す設計のため、既存プレイリストもデータ移行なしに反映される。
+- **CR-066**：`css/style.css`の`.list-item`に`:first-child`の`border-top`を追加し、`:last-child`の`border-bottom: none`ルールを削除（一覧全体を区切り線で囲む）。
+- **CR-067**：`css/style.css`の`.track-item-compact .track-number`を左寄せ（`min-width:1.4em; text-align:left`）に変更し、`.track-item-compact .track-play`の`gap`を14pxに拡大。
+- **CR-068**：`js/views/mini-player-view.js`から「前へ」ボタン（`.mini-prev`）と関連ハンドラを削除。`js/playlist-player.js`の`prev()`メソッドは呼び出し元が無くなったため削除（`PlaybackHistory`自体は`currentTrack()`の追跡に引き続き使用）。`js/app.js`のMedia Session `previoustrack`ハンドラも無効化。
+- **CR-069**：`js/views/dialog.js`の`buildOverlay`/`closeOverlay`を、下からのスライドイン（`requestAnimationFrame`で`.open`クラス付与）・スライドアウト（クラス除去後320ms待ってDOM除去、Promiseで待機可能）に対応する形にして`export`し、`js/views/playlist-picker-dialog.js`からも共通利用するようリファクタ（独自のオーバーレイ組み立てコードを削除）。`css/style.css`の`.dialog-overlay`/`.dialog-box`を画面下端からのスライド表示に変更。
+
+Unitテスト132件成功（`js/playlist-player.js`・`js/playlist-sort.js`・`js/track-api.js`にCR-063/064関連のテストを追加。`js/views/mini-player-view.js`・`js/views/dialog.js`はDOM依存のためUnitテスト対象外）。Playwrightスモークテスト（iTunes APIをモック）で、アルバム・収録順まとめの並び順、一覧の先頭行の上・最後の行の下の区切り線、削除確認ダイアログの下からのスライド表示、ミニプレイヤーに「前へ」が無いこと、全曲一巡後に次へボタンが非活性化され自動停止することを確認した。コンソールエラーなし。
+
+---
+
 ## 全体の進捗まとめ（2026-09-30時点）
 
 | ドキュメント／フェーズ | 状態 |
@@ -962,5 +977,6 @@ FR-4.10を全面改訂し、前の曲へ戻る機能自体を廃止する（戻�
 | `plan-cr-implementation.md` フェーズ32（CR-055〜058） | **完了**（CR-055〜058すべてコード実装済み。Unitテスト124件成功、Playwrightスモークテスト成功。フェーズ20の受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ33（CR-059〜062の対応計画） | **ドキュメント反映・対応計画の記載のみ完了**（change-request-form.md・acceptance-criteria.md・acceptance-test-cases.mdの改訂を実施。ユーザー指示により実装は未着手） |
 | `plan-cr-implementation.md` フェーズ34（CR-063〜065の不具合調査、CR-066〜069の画面モック） | 完了（change-request-form.mdへの登録、画面モックのArtifact提示） |
-| `plan-cr-implementation.md` フェーズ35（CR-063〜069の仕様確定） | **ドキュメント反映のみ完了**（CR-063・064・066・067・068・069すべて仕様確定し、acceptance-criteria.md（FR-4.4全面改訂、FR-2.11改訂、FR-4.10全面改訂、NFR-3.7・NFR-5.9・NFR-5.10新設、NFR-5.6・NFR-5.8改訂）・acceptance-test-cases.mdに反映。CR-065は見送り。CR-068はFR-4.10との矛盾をユーザーに確認し「戻る機能ごと廃止」で確定。実装はいずれも未着手） |
+| `plan-cr-implementation.md` フェーズ35（CR-063〜069の仕様確定） | 完了（acceptance-criteria.md・acceptance-test-cases.mdに反映。CR-065は見送り。CR-068はFR-4.10との矛盾をユーザーに確認し「戻る機能ごと廃止」で確定） |
+| `plan-cr-implementation.md` フェーズ36（CR-063・064・066〜069の実装） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ20（全CR分の受入テスト） | **未着手**（ユーザー指示により、全実装完了後の現時点でも着手せず） |

@@ -95,7 +95,8 @@ function setupMediaSession() {
   navigator.mediaSession.setActionHandler('play', () => currentPlayer && currentPlayer.togglePlayPause());
   navigator.mediaSession.setActionHandler('pause', () => currentPlayer && currentPlayer.togglePlayPause());
   navigator.mediaSession.setActionHandler('nexttrack', () => currentPlayer && currentPlayer.next());
-  navigator.mediaSession.setActionHandler('previoustrack', () => currentPlayer && currentPlayer.prev());
+  // CR-068：前の曲へ戻る機能自体を廃止（FR-4.10改訂）したため、ロック画面/通知の「前へ」も無効化する
+  navigator.mediaSession.setActionHandler('previoustrack', null);
 }
 setupMediaSession();
 
@@ -140,12 +141,11 @@ function renderMiniPlayerBar() {
     {
       track: currentPlayer.currentTrack(),
       playing: currentPlayer.playing,
-      canGoBack: currentPlayer.history.canGoBack(),
+      finished: currentPlayer.finished,
     },
     {
       onTogglePlayPause: () => currentPlayer.togglePlayPause(),
       onNext: () => currentPlayer.next(),
-      onPrev: () => currentPlayer.prev(),
       onTap: () => {
         if (playbackContext.type === 'playlist') {
           activeTab = 'playlist';
@@ -316,6 +316,7 @@ function startPlaylistPlayback(playlistId, tracks, startIndex, shuffleOn = true)
     },
     onPlayStateChange: () => reflectPlaybackState(),
     onFailureStop: () => reflectPlaybackState(),
+    onPlaybackComplete: () => reflectPlaybackState(), // CR-063：一巡後の自動停止をミニプレイヤーに反映
   });
   playbackContext = { type: 'playlist', playlistId };
   currentPlayer.start(startIndex);
@@ -339,6 +340,7 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
     },
     onPlayStateChange: () => reflectPlaybackState(),
     onFailureStop: () => reflectPlaybackState(),
+    onPlaybackComplete: () => reflectPlaybackState(), // CR-063：一巡後の自動停止をミニプレイヤーに反映
   });
   playbackContext = { type: 'album', albumName };
   currentPlayer.start();

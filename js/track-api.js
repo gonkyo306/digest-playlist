@@ -1,6 +1,9 @@
 // フェーズ1：データの土台
 // 保存済みの曲ID（trackId）から、最新の曲情報（曲名・アーティスト・ジャケット・試聴音源URL）を
 // 取得する処理。検索（フェーズ2）とは別に、プレイリスト詳細画面で使う（FR-3.2）。
+// プレイリストはtrackIdのみを保存し、表示のたびに本APIで最新情報を取得し直す設計のため、
+// CR-064（FR-2.11のアルバム・収録順まとめ）で追加したalbum・trackNumberも、保存データの
+// マイグレーションなしに既存プレイリストへそのまま反映される。
 //
 // iTunes Lookup API（https://itunes.apple.com/lookup?id=...）を使う。
 // 検索API（/search）とは別のエンドポイントで、IDを指定して曲情報をまとめて取得できる。
@@ -38,6 +41,8 @@ export function parseLookupResponse(json, requestedIds) {
         id: r.trackId,
         title: r.trackName,
         artist: r.artistName,
+        album: r.collectionName || '',
+        trackNumber: typeof r.trackNumber === 'number' ? r.trackNumber : null,
         artwork: r.artworkUrl100,
         previewUrl: r.previewUrl,
       });

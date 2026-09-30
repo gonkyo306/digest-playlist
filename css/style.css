@@ -131,8 +131,9 @@ h1 { font-size: 1.1rem; }
 }
 
 /* フェーズ28（CR-048）：Apple Musicのように、行はカード（角丸の背景ボックス）ではなく、
-   行の下端の横線（区切り線）で区切る意匠に統一する（NFR-5.6）。最後の行の下には区切り線を
-   付けない（読み込み中インジケータ等、.list-item以外の要素が続く場合は表示されたままになる） */
+   行の下端の横線（区切り線）で区切る意匠に統一する（NFR-5.6）。
+   CR-066：一覧全体が上下を区切り線で囲まれた形になるよう、先頭行の上・最後の行の下にも
+   区切り線を追加した（旧仕様では先頭行の上・最後の行の下には区切り線が無かった） */
 .list-item {
   display: flex;
   align-items: center;
@@ -140,8 +141,8 @@ h1 { font-size: 1.1rem; }
   padding: 8px;
   border-bottom: 1px solid var(--border);
 }
-.list-item:last-child {
-  border-bottom: none;
+.list-item:first-child {
+  border-top: 1px solid var(--border);
 }
 .list-item-main {
   flex: 1;
@@ -324,25 +325,41 @@ h1 { font-size: 1.1rem; }
   color: #fff;
 }
 
-/* --- フェーズ5：確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） --- */
+/* --- フェーズ5：確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） ---
+   CR-069：画面中央へのフェード表示ではなく、画面下端からスライドして現れる／消える
+   アニメーションに統一する（.dialog-overlay/.dialog-boxを共有する追加先選択モーダル
+   （playlist-picker-dialog.js）等、全てのポップアップに適用される。openOverlay/closeOverlayで
+   .openクラスの付与・削除を行う） */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 24px;
+  padding: 0;
   z-index: 1000;
+  transition: background 0.28s ease;
+  pointer-events: none;
+}
+.dialog-overlay.open {
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
 }
 .dialog-box {
   background: var(--card);
   color: var(--fg);
-  border-radius: 14px;
+  border-radius: 16px 16px 0 0;
   padding: 20px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
   width: 100%;
-  max-width: 320px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  max-width: 480px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3);
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(.32, .72, 0, 1);
+}
+.dialog-overlay.open .dialog-box {
+  transform: translateY(0);
 }
 .dialog-title {
   font-size: 1.05rem;
@@ -451,8 +468,10 @@ h1 { font-size: 1.1rem; }
 /* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を4px→10pxに広げる（NFR-5.7） */
 .mini-player-controls { display: flex; gap: 10px; flex-shrink: 0; }
-/* フェーズ29（CR-051、NFR-5.8）：前へ・再生／一時停止・次へのアイコンをひと回り大きくする。
-   タップ領域（.icon-btnのmin-width/min-height、NFR-5.2）は変更しない */
+/* フェーズ29（CR-051、NFR-5.8）：再生／一時停止・次へのアイコンをひと回り大きくする。
+   タップ領域（.icon-btnのmin-width/min-height、NFR-5.2）は変更しない。
+   CR-068：「前へ」ボタンを廃止したことで.mini-player-controlsの幅が縮み、
+   .mini-player-tap（flex: 1）側の曲名・アーティスト名の表示幅が自動的に広がる */
 .mini-player-controls .icon-only svg { width: 26px; height: 26px; }
 
 /* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に追加先プレイリストの
@@ -633,10 +652,12 @@ h1 { font-size: 1.1rem; }
 .shuffle-btn.active { background: var(--accent); color: var(--accent-fg); }
 
 /* --- CR-013：段階検索の簡易曲一覧（アルバム情報欄自体はフェーズ21でheroレイアウトに統合） --- */
+/* CR-067：番号を左寄せにし、曲名との間隔を広げる（1.8em右寄せ→1.4em左寄せ、gap 8px→14px） */
 .track-item-compact .track-number {
   color: var(--muted);
-  min-width: 1.8em;
-  text-align: right;
+  min-width: 1.4em;
+  text-align: left;
+  margin-left: 2px;
   flex-shrink: 0;
 }
 /* フェーズ22（仕様見直し）で、ジャケットが無く行が低くなっていたため高さを揃えようとしたが、
@@ -644,9 +665,10 @@ h1 { font-size: 1.1rem; }
    ジャケット付きの行より高くなってしまっていた（CR-042）。
    ジャケット画像1個分（44px）を置いたと仮定した高さ（.list-item-mainのpadding 6px×2を含めて
    56px）を確保することで、ジャケット付きの行と同じ高さ（外側の.list-itemのpadding 8px×2と
-   合わせて合計72px）になるよう修正した */
+   合わせて合計72px）になるよう修正した。gap: 14pxはCR-067（番号と曲名の間隔拡大） */
 .track-item-compact .track-play {
   min-height: 56px;
+  gap: 14px;
 }
 
 /* --- フェーズ16（CR-018）：続きがあることを示す、視認できる下矢印のガイド表示 --- */

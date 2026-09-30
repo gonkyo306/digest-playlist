@@ -158,29 +158,6 @@ test('next: 次の曲へ手動で進める (FR-4.9)', async () => {
   assert.equal(changes.length, 2);
 });
 
-test('prev: 履歴の先頭では前へ戻れない (FR-4.10)', async () => {
-  const tracks = makeTracks(3);
-  const { player, changes } = createPlayer(tracks);
-  await player.start();
-  player.prev();
-  await Promise.resolve();
-  assert.equal(changes.length, 1, '履歴の先頭なので状態が変わらない');
-});
-
-test('prev: 次へ進んだ後は、前へ戻って同じ曲に戻れる', async () => {
-  const tracks = makeTracks(3);
-  const { player } = createPlayer(tracks);
-  await player.start();
-  const firstId = player.currentTrack().id;
-  player.next();
-  await Promise.resolve();
-  await Promise.resolve();
-  player.prev();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(player.currentTrack().id, firstId);
-});
-
 test('togglePlayPause: 再生中に呼ぶと一時停止し、もう一度呼ぶと再開する (FR-4.8)', async () => {
   const tracks = makeTracks(2);
   const { player } = createPlayer(tracks);
@@ -192,7 +169,7 @@ test('togglePlayPause: 再生中に呼ぶと一時停止し、もう一度呼ぶ
   assert.equal(player.playing, true);
 });
 
-test('1曲のみのプレイリストは、一巡後も同じ曲を繰り返す (FR-4.14)', async () => {
+test('1曲のみのプレイリストは、再生が終わると自動停止する（繰り返さない） (FR-4.14, CR-063)', async () => {
   const tracks = makeTracks(1);
   const { player, createdAudios, changes } = createPlayer(tracks);
   assert.equal(player.isSingleTrack, true);
@@ -200,8 +177,91 @@ test('1曲のみのプレイリストは、一巡後も同じ曲を繰り返す 
   createdAudios[0].fireEnded();
   await Promise.resolve();
   await Promise.resolve();
+  assert.equal(changes.length, 1, '同じ曲が再度流れることはない');
+  assert.equal(player.finished, true);
+  assert.equal(player.playing, false);
+});
+
+// --- CR-063：全曲を一巡すると自動停止する（無限ループを廃止） ---
+
+test('複数曲のプレイリストは、全曲を一巡すると自動停止し、再シャッフルして続けない (FR-4.4, CR-063)', async () => {
+  const tracks = makeTracks(3);
+  const { player, createdAudios, changes } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
+  await player.start();
+  assert.deepEqual(player.order, [0, 1, 2]);
+  for (let i = 0; i < 3; i++) {
+    createdAudios[0].fireEnded();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+  assert.equal(changes.length, 3, '3曲目までしか再生されず、4曲目（先頭の繰り返し）は流れない');
+  assert.equal(player.finished, true);
+  assert.equal(player.playing, false);
+});
+
+test('一巡して自動停止すると、onPlaybackCompleteが呼ばれる (CR-063)', async () => {
+  const tracks = makeTracks(2);
+  let completed = false;
+  const player = new PlaylistPlayer(tracks, {
+    crossfadeSeconds: 0,
+    shuffle: false,
+    createAudio: () => new FakeAudio(),
+    createAudioContext: () => new FakeAudioContext(),
+    onPlaybackComplete: () => { completed = true; },
+  });
+  await player.start();
+  player.active.fireEnded();
+  await Promise.resolve();
+  await Promise.resolve();
+  player.active.fireEnded();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(completed, true);
+});
+
+test('自動停止後は、next()・togglePlayPause()を呼んでも何も起きない (CR-063)', async () => {
+  const tracks = makeTracks(2);
+  const { player, createdAudios, changes } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
+  await player.start();
+  createdAudios[0].fireEnded();
+  await Promise.resolve();
+  await Promise.resolve();
+  createdAudios[0].fireEnded();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(player.finished, true);
+  player.next();
+  player.togglePlayPause();
+  await Promise.resolve();
+  assert.equal(changes.length, 2, '自動停止後に曲は変わらない');
+  assert.equal(player.playing, false);
+});
+
+test('クロスフェード有効でも、最後の曲ではクロスフェードせず自然に終わって自動停止する (CR-063)', async () => {
+  const tracks = makeTracks(2);
+  const { player, createdAudios, changes } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 2 });
+  await player.start();
+  // 1曲目→2曲目はクロスフェードで進む
+  const first = createdAudios[0];
+  first.duration = 10;
+  first.currentTime = 8.5;
+  first.fireTimeUpdate();
+  await Promise.resolve();
+  await Promise.resolve();
   assert.equal(changes.length, 2);
-  assert.equal(changes[1].id, tracks[0].id);
+  // 2曲目（最後の曲）はクロスフェードを開始しない
+  const second = player.active;
+  second.duration = 10;
+  second.currentTime = 8.5;
+  second.fireTimeUpdate();
+  await Promise.resolve();
+  assert.equal(changes.length, 2, '最後の曲ではクロスフェードが始まらない');
+  assert.equal(player.finished, false, 'まだ自然終了（ended）を迎えていない');
+  // 自然に最後まで再生し終わるとendedが発火し、自動停止する
+  second.fireEnded();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(player.finished, true);
 });
 
 test('3曲連続で再生に失敗すると停止し、onFailureStopが呼ばれる (FR-4.15)', async () => {
@@ -262,19 +322,15 @@ test('shuffle:false + start(startIndex): 指定した曲から表示順のまま
   assert.equal(player.currentTrack().id, tracks[2].id);
 });
 
-test('shuffle:false で一巡すると、同じ並び順のまま先頭から繰り返す（再シャッフルしない） (CR-038)', async () => {
+test('shuffle:false では、並び順は再生中ずっと固定される（再シャッフルしない） (CR-038)', async () => {
   const tracks = makeTracks(3);
   const { player, createdAudios } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
   await player.start();
-  // クロスフェード無効時はactiveが固定される（createdAudios[0]のまま）。3曲分ended通知を送り、
-  // 一巡後に先頭へ戻ることを確認する
-  for (let i = 0; i < 3; i++) {
-    createdAudios[0].fireEnded();
-    await Promise.resolve();
-    await Promise.resolve();
-  }
+  createdAudios[0].fireEnded();
+  await Promise.resolve();
+  await Promise.resolve();
   assert.deepEqual(player.order, [0, 1, 2]);
-  assert.equal(player.currentTrack().id, tracks[0].id);
+  assert.equal(player.currentTrack().id, tracks[1].id);
 });
 
 test('shuffle省略時（既定）は、これまで通りランダムな初期順序になる (FR-4.2)', async () => {
