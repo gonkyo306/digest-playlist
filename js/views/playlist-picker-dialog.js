@@ -13,6 +13,7 @@
 import { enqueueDialog } from './dialog.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { iconOnly } from './icons.js';
+import { pushBackState, popBackState } from '../back-stack.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -73,12 +74,14 @@ function openPickerList(playlists, lastUsedPlaylistId = null) {
       overlay.remove();
       resolve(id);
     };
+    // CR-053（FR-6.3）：OSの戻る操作ではキャンセル相当の扱いにする
+    pushBackState(() => finish(null));
     overlay.querySelectorAll('.playlist-picker-item').forEach((btn) => {
-      btn.addEventListener('click', () => finish(btn.dataset.id));
+      btn.addEventListener('click', () => { popBackState(); finish(btn.dataset.id); });
     });
-    overlay.querySelector('.dialog-cancel').addEventListener('click', () => finish(null));
+    overlay.querySelector('.dialog-cancel').addEventListener('click', () => { popBackState(); finish(null); });
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) finish(null);
+      if (e.target === overlay) { popBackState(); finish(null); }
     });
   });
 }

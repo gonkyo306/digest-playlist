@@ -29,6 +29,7 @@ import { renderPlaylistCreate } from './views/playlist-create-view.js';
 import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
+import { pushBackState, popBackState } from './back-stack.js';
 
 const playlistPaneEl = document.getElementById('playlist-pane');
 const searchPaneEl = document.getElementById('search-pane');
@@ -189,6 +190,13 @@ function applyTabVisibility() {
 
 // --- プレイリストタブ ---
 
+// CR-053（FR-6.3）：プレイリスト詳細を開いた際に、OSの戻る操作で一覧へ戻るための処理として
+// history.pushStateとセットで使う
+function goToPlaylistList() {
+  playlistView = { screen: 'list' };
+  showPlaylistList();
+}
+
 async function showPlaylistList() {
   playlistView = { screen: 'list' };
   const playlists = await getAllPlaylists();
@@ -197,6 +205,7 @@ async function showPlaylistList() {
     onOpen: (id) => {
       playlistView = { screen: 'detail', playlistId: id };
       showPlaylistDetail(id);
+      pushBackState(goToPlaylistList);
     },
     onCreateNew: () => showPlaylistCreate(),
   });
@@ -250,8 +259,8 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
     playlist, tracks: available, unavailableIds, fetchError, isCurrentlyPlaying,
   }, {
     onBack: () => {
-      playlistView = { screen: 'list' };
-      showPlaylistList();
+      popBackState();
+      goToPlaylistList();
     },
     onStartPlayback: (shuffleOn) => {
       // シャッフルOFF時は曲一覧の表示順（アーティスト名順）で再生する（CR-038、FR-2.16）

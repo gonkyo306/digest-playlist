@@ -9,6 +9,8 @@
 // フェーズ23（CR-037）：プレイリスト名の変更は、名前変更ダイアログ（showPrompt）ではなく、
 // 詳細画面の編集モード内でその場編集する方式に変更したため、showPromptは廃止した。
 
+import { pushBackState, popBackState } from '../back-stack.js';
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -59,10 +61,12 @@ export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel =
       closeOverlay(overlay);
       resolve(result);
     };
-    overlay.querySelector('.dialog-cancel').addEventListener('click', () => finish(false));
-    overlay.querySelector('.dialog-confirm').addEventListener('click', () => finish(true));
+    // CR-053（FR-6.3）：OSの戻る操作ではキャンセル相当の扱いにする
+    pushBackState(() => finish(false));
+    overlay.querySelector('.dialog-cancel').addEventListener('click', () => { popBackState(); finish(false); });
+    overlay.querySelector('.dialog-confirm').addEventListener('click', () => { popBackState(); finish(true); });
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) finish(false);
+      if (e.target === overlay) { popBackState(); finish(false); }
     });
   }));
 }
@@ -85,9 +89,11 @@ export function showMessage({ title, message, okLabel = 'OK' }) {
       closeOverlay(overlay);
       resolve();
     };
-    overlay.querySelector('.dialog-confirm').addEventListener('click', finish);
+    // CR-053（FR-6.3）：OSの戻る操作でも閉じられるようにする
+    pushBackState(finish);
+    overlay.querySelector('.dialog-confirm').addEventListener('click', () => { popBackState(); finish(); });
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) finish();
+      if (e.target === overlay) { popBackState(); finish(); }
     });
   }));
 }

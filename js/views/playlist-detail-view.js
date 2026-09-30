@@ -33,6 +33,7 @@ import { iconOnly } from './icons.js';
 import { largeArtworkUrl } from '../artwork-url.js';
 import { resizeImageToJpeg } from '../image-resize.js';
 import { blobToUrl } from '../blob-url-cache.js';
+import { pushBackState, popBackState } from '../back-stack.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -68,6 +69,19 @@ export function renderPlaylistDetail(container, {
   // CR-044（FR-2.19）：編集モード中に選び直した画像（undefined=未変更、Blob=変更あり）
   let pendingImageBlob;
   let pendingImageObjectUrl = null;
+
+  // CR-053（FR-6.3）：OSの戻る操作でも、編集モードのキャンセルと同じ扱いで抜けられるようにする
+  function cancelEdit() {
+    editMode = false;
+    editName = playlist.name;
+    removedIds = new Set();
+    pendingImageBlob = undefined;
+    if (pendingImageObjectUrl) {
+      URL.revokeObjectURL(pendingImageObjectUrl);
+      pendingImageObjectUrl = null;
+    }
+    render();
+  }
 
   function currentHeroArtworkUrl() {
     // 優先順位（FR-2.10）：(1) 編集中に選び直した画像 (2) プレイリストのカスタム画像
@@ -150,15 +164,8 @@ export function renderPlaylistDetail(container, {
 
     if (editMode) {
       container.querySelector('#cancel-edit-btn').addEventListener('click', () => {
-        editMode = false;
-        editName = playlist.name;
-        removedIds = new Set();
-        pendingImageBlob = undefined;
-        if (pendingImageObjectUrl) {
-          URL.revokeObjectURL(pendingImageObjectUrl);
-          pendingImageObjectUrl = null;
-        }
-        render();
+        popBackState();
+        cancelEdit();
       });
       container.querySelector('#edit-name-input').addEventListener('input', (e) => {
         editName = e.target.value;
@@ -175,6 +182,7 @@ export function renderPlaylistDetail(container, {
         render();
       });
       container.querySelector('#save-edit-btn').addEventListener('click', () => {
+        popBackState();
         const finalName = editName.trim() || playlist.name;
         const remainingTrackIds = playlist.trackIds.filter((id) => !removedIds.has(String(id)));
         actions.onSaveEdit(finalName, remainingTrackIds, pendingImageBlob);
@@ -186,15 +194,21 @@ export function renderPlaylistDetail(container, {
         });
       });
     } else {
-      container.querySelector('#back-btn').addEventListener('click', actions.onBack);
+      container.querySelector('#back-btn').addEventListener('click', () => {
+        popBackState();
+        actions.onBack();
+      });
       container.querySelector('#edit-btn').addEventListener('click', () => {
         editMode = true;
         render();
+        // CR-053（FR-6.3）：編集モードに入ったことを1段階の遷移として履歴に積む
+        pushBackState(cancelEdit);
       });
       container.querySelector('#delete-btn').addEventListener('click', async () => {
         const ok = await showConfirm({
           title: 'プレイリストを削除',
-          message: `「${playlist.name}」を削除しますか？この操作は取り消せません。`,
+          // フェーズ29（CR-052）：2文目を改行して見やすくする（.dialog-messageのwhite-space:pre-lineで反映）
+          message: `「${playlist.name}」を削除しますか？\nこの操作は取り消せません。`,
           confirmLabel: '削除する',
           danger: true,
         });

@@ -7,6 +7,7 @@
 
 import { iconOnly } from './icons.js';
 import { resizeImageToJpeg } from '../image-resize.js';
+import { pushBackState, popBackState } from '../back-stack.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,6 +24,12 @@ export function renderPlaylistCreate(container, data, actions) {
   let name = '';
   let saving = false;
 
+  // CR-053（FR-6.3）：OSの戻る操作でもキャンセルと同じ扱いで画面を戻れるようにする
+  function doCancel() {
+    if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
+    actions.onCancel();
+  }
+
   function render() {
     const canSave = !!name.trim() && !saving;
     container.innerHTML = `
@@ -38,11 +45,12 @@ export function renderPlaylistCreate(container, data, actions) {
     `;
 
     container.querySelector('#create-cancel-btn').addEventListener('click', () => {
-      if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
-      actions.onCancel();
+      popBackState();
+      doCancel();
     });
     container.querySelector('#create-save-btn').addEventListener('click', () => {
       if (!name.trim() || saving) return;
+      popBackState();
       saving = true;
       render();
       Promise.resolve(actions.onSave(name.trim(), imageBlob)).finally(() => {
@@ -67,4 +75,6 @@ export function renderPlaylistCreate(container, data, actions) {
   }
 
   render();
+  // CR-053（FR-6.3）：この画面を開いたことを1段階の遷移として履歴に積む
+  pushBackState(doCancel);
 }

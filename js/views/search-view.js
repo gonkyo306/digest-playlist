@@ -23,6 +23,7 @@ import { largeArtworkUrl } from '../artwork-url.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { showAddDestinationPicker } from './playlist-picker-dialog.js';
 import { renderPlaylistCreate } from './playlist-create-view.js';
+import { pushBackState, popBackState } from '../back-stack.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -221,7 +222,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       resultsEl.innerHTML = [
         ...artists.map((a, i) => artistRowHtml(a, i)),
         ...albums.map((a, i) => albumRowHtml(a, i)),
-        ...tracks.map((t, i) => trackRowHtml(t, i, { added: addedIds.has(t.id) })),
+        ...tracks.map((t, i) => trackRowHtml(t, i, { added: addedIds.has(t.id), hideAddControl: !currentDestination })),
       ].join('');
 
       bindArtistRowEvents(resultsEl, artists, (artist) => {
@@ -330,6 +331,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   async function loadArtistAlbums() {
     mode = 'albums';
     container.innerHTML = `<div class="note">アルバムを取得中…</div>`;
+    // CR-053（FR-6.3）：アーティストのアルバム一覧へのドリルダウンを1段階の遷移として履歴に積む
+    pushBackState(renderResultsStep);
     try {
       drillAlbums = await actions.onArtistAlbums(selectedArtist.id);
       renderAlbumsStep();
@@ -338,7 +341,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         ${backButtonHtml('back-to-results', '検索結果へ戻る')}
         <p class="error-banner">アルバムの取得に失敗しました（${escapeHtml(err.message)}）</p>
       `;
-      container.querySelector('#back-to-results').addEventListener('click', renderResultsStep);
+      container.querySelector('#back-to-results').addEventListener('click', () => { popBackState(); renderResultsStep(); });
     }
   }
 
@@ -358,7 +361,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         }
       </ul>
     `;
-    container.querySelector('#back-to-results').addEventListener('click', renderResultsStep);
+    container.querySelector('#back-to-results').addEventListener('click', () => { popBackState(); renderResultsStep(); });
     const listEl = container.querySelector('#album-results');
     bindAlbumRowEvents(listEl, drillAlbums, (album) => {
       selectedAlbum = album;
@@ -374,18 +377,21 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   async function loadAlbumTracksFromResults() {
     mode = 'tracks';
     container.innerHTML = `<div class="note">収録曲を取得中…</div>`;
+    // CR-053（FR-6.3）：収録曲一覧へのドリルダウンを1段階の遷移として履歴に積む。
+    // 戻り先はこの時点のprevious ModeForTracks（albums/results）で決まる
+    const backTarget = previousModeForTracks === 'albums' ? renderAlbumsStep : renderResultsStep;
+    pushBackState(backTarget);
     try {
       albumTracks = await actions.onAlbumTracks(selectedAlbum.id);
       shuffleOn = false;
       renderAlbumTracksStep();
     } catch (err) {
-      const backTarget = previousModeForTracks === 'albums' ? renderAlbumsStep : renderResultsStep;
       const backLabel = previousModeForTracks === 'albums' ? 'アルバム一覧へ戻る' : '検索結果へ戻る';
       container.innerHTML = `
         ${backButtonHtml('back-from-tracks-error', backLabel)}
         <p class="error-banner">収録曲の取得に失敗しました（${escapeHtml(err.message)}）</p>
       `;
-      container.querySelector('#back-from-tracks-error').addEventListener('click', backTarget);
+      container.querySelector('#back-from-tracks-error').addEventListener('click', () => { popBackState(); backTarget(); });
     }
   }
 
@@ -417,7 +423,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       </div>
       <ul class="list" id="album-track-results"></ul>
     `;
-    container.querySelector('#back-from-tracks').addEventListener('click', backTarget);
+    container.querySelector('#back-from-tracks').addEventListener('click', () => { popBackState(); backTarget(); });
 
     if (canPlayAlbum) {
       const shuffleBtn = container.querySelector('#album-shuffle-btn');
@@ -438,7 +444,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       if (!listEl) return; // mountDestinationHeaderの解決待ち中に画面遷移済み
       const addedIds = currentDestination ? new Set(currentDestination.trackIds) : new Set();
       listEl.innerHTML = albumTracks
-        .map((t, i) => compactTrackRowHtml(t, i, { added: addedIds.has(t.id) }))
+        .map((t, i) => compactTrackRowHtml(t, i, { added: addedIds.has(t.id), hideAddControl: !currentDestination }))
         .join('');
       bindTrackRowEvents(listEl, albumTracks, {
         previewPlayer,

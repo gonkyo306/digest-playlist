@@ -17,8 +17,12 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** ＋ボタン、または「追加済」バッジのHTMLを組み立てる（FR-1.12・FR-1.20） */
-function addControlHtml(index, added) {
+/**
+ * ＋ボタン、「追加済」バッジ、または何も表示しない（追加先プレイリストが1件も無い場合。CR-054）の
+ * HTMLを組み立てる（FR-1.12・FR-1.20）。
+ */
+function addControlHtml(index, added, hideControl) {
+  if (hideControl) return '';
   if (added) {
     return '<span class="added-badge" aria-label="追加済み">追加済</span>';
   }
@@ -29,10 +33,12 @@ function addControlHtml(index, added) {
  * 曲1件分の行（＋ボタンのタップで、現在の追加先プレイリストへ即座に追加する。行タップで試聴の開始／停止）。
  * @param {{id, title, artist, album, artwork}} track
  * @param {number} index
- * @param {{added?: boolean}} [options] addedは、表示された時点で既に追加先プレイリストに含まれているか
+ * @param {{added?: boolean, hideAddControl?: boolean}} [options] addedは、表示された時点で既に
+ *   追加先プレイリストに含まれているか。hideAddControlは、追加先プレイリストが1件も無い場合に
+ *   ＋ボタン自体を表示しない（CR-054、FR-1.12）
  */
 export function trackRowHtml(track, index, options = {}) {
-  const { added = false } = options;
+  const { added = false, hideAddControl = false } = options;
   return `
     <li class="list-item track-item" data-index="${index}">
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
@@ -43,7 +49,7 @@ export function trackRowHtml(track, index, options = {}) {
           <div class="item-sub">${escapeHtml(track.artist)}${track.album ? ` / ${escapeHtml(track.album)}` : ''}</div>
         </div>
       </button>
-      ${addControlHtml(index, added)}
+      ${addControlHtml(index, added, hideAddControl)}
     </li>
   `;
 }
@@ -54,10 +60,10 @@ export function trackRowHtml(track, index, options = {}) {
  * 番号は数字のみを表示し、末尾にピリオドは付けない（CR-048）。
  * @param {{id, title}} track
  * @param {number} index
- * @param {{added?: boolean}} [options]
+ * @param {{added?: boolean, hideAddControl?: boolean}} [options]
  */
 export function compactTrackRowHtml(track, index, options = {}) {
-  const { added = false } = options;
+  const { added = false, hideAddControl = false } = options;
   return `
     <li class="list-item track-item track-item-compact" data-index="${index}">
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
@@ -66,7 +72,7 @@ export function compactTrackRowHtml(track, index, options = {}) {
           <div class="item-name">${escapeHtml(track.title)}</div>
         </div>
       </button>
-      ${addControlHtml(index, added)}
+      ${addControlHtml(index, added, hideAddControl)}
     </li>
   `;
 }

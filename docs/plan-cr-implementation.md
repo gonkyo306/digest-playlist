@@ -679,6 +679,58 @@ CR-053（OSの戻る操作対応）は、既存の画面遷移の仕組み全体
 
 ---
 
+## フェーズ31：CR-050〜054のコード実装（2026-09-30、実装完了）
+
+ユーザーから「CR-050〜054をまとめて実装進めて」との指示を受け、フェーズ29・30でドキュメント反映のみとしていた5件をまとめて実装した。
+
+### CR-050：シャッフルボタンのカード復元
+- `css/style.css`の`.shuffle-btn`に`background: var(--btn-bg);`を追加。ONのときは既存の`.shuffle-btn.active`（クラス2つ分の詳細度）が優先されて`--accent`背景になる、という優先順位はそのまま利用できた
+
+### CR-051：ミニプレイヤーのアイコン拡大
+- `css/style.css`に`.mini-player-controls .icon-only svg { width: 26px; height: 26px; }`を追加。`.icon-btn`自体のタップ領域（NFR-5.2）は変更していない
+
+### CR-052：削除確認ダイアログの改行・ボタン色
+- `js/views/playlist-detail-view.js`の削除確認`showConfirm`呼び出しのmessageに`\n`を追加（`` `「${playlist.name}」を削除しますか？\nこの操作は取り消せません。` ``）
+- `css/style.css`の`.dialog-message`に`white-space: pre-line;`を追加
+- `.dialog-confirm.danger`の背景色を`var(--danger)`から`#ff3b30`に変更（`danger: true`を指定する呼び出しはプレイリスト削除の1箇所のみのため、他画面への影響は無い）
+
+### CR-053：OSの戻る操作対応（History API）
+- 新規`js/back-stack.js`を追加。`pushBackState(onPop)`／`popBackState()`の2関数と、内部の履歴スタックを持つ共通モジュール
+  - `pushBackState(onPop)`：`history.pushState`で履歴を1つ積み、OSの戻る操作（`popstate`）が発火したときに実行する「1段階戻る」処理（`onPop`）をスタックに積む
+  - `popBackState()`：アプリ内の明示的な操作（戻るボタン・キャンセル・ダイアログのボタン等）で1段階戻る際に呼ぶ。対応する履歴が積まれていれば、`onPop`は実行せず`history.back()`で履歴だけを消費する（直後の1回の`popstate`は内部フラグで無視し、二重実行を防ぐ）
+  - Unitテスト環境（Node、`window`/`history`が無い）では両関数とも安全に無視される設計にし、既存の`test/dialog-queue.test.js`（`dialog.js`を直接importする）に影響が出ないようにした
+- 各画面・モーダルへの組み込み：
+  - `js/views/dialog.js`：`showConfirm`／`showMessage`の各ボタン・オーバーレイクリックで`popBackState()`を呼んでから閉じる。開いた直後に`pushBackState(() => finish(false-or-void))`を登録（OSの戻る＝キャンセル相当）
+  - `js/views/playlist-picker-dialog.js`：`openPickerList`に同様のpush/pop組み込み
+  - `js/views/playlist-create-view.js`：画面を開いた直後に`pushBackState(doCancel)`。キャンセル・保存の両ボタンで`popBackState()`を呼んでから処理する（保存も「この画面を閉じる」操作のため、履歴を消費する）
+  - `js/views/playlist-detail-view.js`：編集モードに入る際に`pushBackState(cancelEdit)`。キャンセル・保存ボタン、および通常モードの「戻る」ボタンで`popBackState()`を呼ぶ
+  - `js/views/search-view.js`：アーティストのアルバム一覧・アルバムの収録曲一覧へのドリルダウン開始時（`loadArtistAlbums`／`loadAlbumTracksFromResults`）に、戻り先（`renderResultsStep`または`renderAlbumsStep`）を`pushBackState`に登録。各「戻る」ボタンで`popBackState()`を呼ぶ
+  - `js/app.js`：プレイリスト一覧から詳細を開く際（`onOpen`）に`pushBackState(goToPlaylistList)`。詳細画面の「戻る」ボタンで`popBackState()`を呼ぶ
+- **スコープ外とした点**：ミニプレイヤーをタップしてプレイリスト詳細へジャンプする導線は、既存の「戻る」ボタンに相当する操作ではないため、今回は履歴に積んでいない（OSの戻るで一覧に戻れない場合がある）。また、複数のタブを行き来した状態でOSの戻る操作をすると、現在表示中のタブとは無関係に、直近にpushされた画面（別タブ側で操作していたもの）の巻き戻しが実行される場合がある（タブ切り替え自体は履歴に積まないため。ユーザー確認済みの仕様どおりだが、完全にタブ単位で独立した履歴にはなっていない点は既知の制約として記録する）
+
+### CR-054：追加先プレイリストが無い場合の検索タブ
+- `js/views/track-row.js`：`addControlHtml(index, added, hideControl)`に第3引数を追加し、`hideControl`がtrueなら＋ボタン・追加済バッジのどちらも表示しない。`trackRowHtml`／`compactTrackRowHtml`の`options`に`hideAddControl`を追加
+- `js/views/search-view.js`：`trackRowHtml`／`compactTrackRowHtml`の呼び出しに`hideAddControl: !currentDestination`を渡す
+- `css/style.css`の`.dest-header-guide`を、文字色のみの表示から`.pill-play-btn`相当の塗りつぶしピル型ボタン（`background: var(--accent)`、`border-radius: 999px`等）に変更
+
+### テスト
+- Unitテスト：124件成功（既存分。CR-050〜054はUIロジックが中心のためPlaywrightで確認）
+- 全変更ファイルを`node --check`で構文確認
+- Playwrightスモークテスト（`/tmp/.../smoke_cr050_054.mjs`）で以下を確認：
+  - シャッフルOFF時の`.shuffle-btn`背景が`--btn-bg`と一致（CR-050）
+  - ミニプレイヤーの操作アイコンの実描画幅が26px（CR-051）
+  - 削除確認ダイアログのメッセージに改行が含まれ`white-space: pre-line`が適用され、確認ボタンの背景が`#ff3b30`（CR-052）
+  - 削除ダイアログを開いた状態でブラウザバック→ダイアログが閉じてプレイリストは削除されない／編集モードでブラウザバック→キャンセル相当で通常モードに戻る／プレイリスト詳細でブラウザバック→一覧に戻る／プレイリスト作成画面でブラウザバック→キャンセル相当で閉じる／検索のアルバム一覧→収録曲一覧の各段階でブラウザバック→1段階ずつ戻る（CR-053）
+  - プレイリストが0件の状態では検索結果・アルバム収録曲一覧のどの行にも＋ボタン・追加済バッジが表示されず、ガイドが`--accent`色の塗りつぶしピル型ボタンになる。プレイリストを作成すると＋ボタンが再表示される（CR-054）
+- 色の比較は、ライト/ダークどちらのテーマで実行されても正しく判定できるよう、CSS変数（`--btn-bg`・`--accent`）の実際の解決値と比較する方式にした
+
+### 次のステップ
+1. `docs/change-request-form.md`のCR-050〜054のステータスを完了に更新 → 完了
+2. `docs/acceptance-criteria.md`・`docs/acceptance-test-cases.md`を実装完了に更新 → 完了
+3. commit・push（`claude/spec-doc-updates`） → 本コミットで実施
+
+---
+
 ### フェーズ20：受入テストの実施（着手時期未定）
 
 CR-001〜CR-035の実装（フェーズ7〜21）と、フェーズ22（実機使用感の指摘を受けた仕様見直し）、フェーズ23（フェーズ22の実機確認フィードバック＋新規要望）、フェーズ24（フェーズ23の実機確認フィードバック）、フェーズ28（CR-043〜049の実装）がすべて完了しています。対象は次の4つです。
@@ -687,8 +739,7 @@ CR-001〜CR-035の実装（フェーズ7〜21）と、フェーズ22（実機使
 2. `plan-cr-implementation.md`フェーズ12（CR-001〜015分の受入テスト再実施）
 3. CR-016〜CR-042分の受入テスト（`acceptance-test-cases.md`で「未実施（CR-0xxで追加）」となっている項目）
 4. CR-043〜049分の受入テスト（フェーズ28で実装完了。同様に「未実施（CR-0xxで追加。実装済み。フェーズ20で実施）」となっている項目）
-
-フェーズ29（CR-050〜053）・フェーズ30（CR-054）はドキュメント反映・対応計画の記載のみで実装が未着手のため、対象には含まれません（実装完了後に別途対象へ加えます）。
+5. CR-050〜054分の受入テスト（フェーズ31で実装完了。同様に「未実施（CR-0xxで追加。実装済み。フェーズ20で実施）」となっている項目。TC-NFR-5.7-2・TC-NFR-5.8-2は実機での確認も必要）
 
 **現時点では着手しません**（ユーザー指示、2026-09-28）。
 
@@ -714,4 +765,5 @@ CR-001〜CR-035の実装（フェーズ7〜21）と、フェーズ22（実機使
 | `plan-cr-implementation.md` フェーズ28（CR-043〜049の実装） | **完了**（コード実装済み。Unitテスト124件成功、Playwrightスモークテスト成功。実装中に見つけた検索タブの追加先常時表示の同期不具合も修正。フェーズ20の受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ29（CR-050〜053の対応計画） | **ドキュメント反映・対応計画の記載のみ完了**（change-request-form.md・acceptance-criteria.md・acceptance-test-cases.mdの改訂を実施。ユーザー指示により実装は未着手） |
 | `plan-cr-implementation.md` フェーズ30（CR-054のドキュメント反映） | **ドキュメント反映のみ完了**（change-request-form.md・acceptance-criteria.md・acceptance-test-cases.mdの改訂を実施。実装は未着手） |
+| `plan-cr-implementation.md` フェーズ31（CR-050〜054の実装） | **完了**（コード実装済み。新規`js/back-stack.js`でOSの戻る操作に対応。Unitテスト124件成功、Playwrightスモークテスト成功。フェーズ20の受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ20（全CR分の受入テスト） | **未着手**（ユーザー指示により、全実装完了後の現時点でも着手せず） |

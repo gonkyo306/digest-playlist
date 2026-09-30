@@ -264,8 +264,11 @@ h1 { font-size: 1.1rem; }
   min-height: 44px;
 }
 /* CR-034：シャッフルボタンは完全な円形にする */
+/* フェーズ29（CR-050、NFR-5.7の例外）：CR-049のアイコンボタン全体からのカード背景除去で
+   シャッフルボタンも巻き込まれてしまっていたため、このボタンだけカード背景を復元する */
 .shuffle-btn {
   border-radius: 50%;
+  background: var(--btn-bg);
 }
 
 /* --- フェーズ23（CR-037）：プレイリスト詳細の編集モード ---
@@ -347,6 +350,8 @@ h1 { font-size: 1.1rem; }
   color: var(--muted);
   margin: 0 0 16px;
   line-height: 1.5;
+  /* フェーズ29（CR-052）：メッセージ中の\nを視覚的な改行として反映する */
+  white-space: pre-line;
 }
 .dialog-actions {
   display: flex;
@@ -362,7 +367,9 @@ h1 { font-size: 1.1rem; }
 }
 .dialog-cancel { background: var(--btn-bg); color: var(--fg); }
 .dialog-confirm { background: var(--accent); color: var(--accent-fg); }
-.dialog-confirm.danger { background: var(--danger); color: #fff; }
+/* フェーズ29（CR-052）：削除ボタンは--danger（薄い赤）ではなく、より鮮やかな赤にする。
+   --danger自体（他画面の警告色）は変更しない */
+.dialog-confirm.danger { background: #ff3b30; color: #fff; }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-bottom: 12px; }
 
 /* --- フェーズ5・11：アイコン＋テキストラベル（FR-5.3） --- */
@@ -441,6 +448,9 @@ h1 { font-size: 1.1rem; }
 /* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を4px→10pxに広げる（NFR-5.7） */
 .mini-player-controls { display: flex; gap: 10px; flex-shrink: 0; }
+/* フェーズ29（CR-051、NFR-5.8）：前へ・再生／一時停止・次へのアイコンをひと回り大きくする。
+   タップ領域（.icon-btnのmin-width/min-height、NFR-5.2）は変更しない */
+.mini-player-controls .icon-only svg { width: 26px; height: 26px; }
 
 /* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に追加先プレイリストの
    常時表示（フェーズ28／CR-047、FR-1.19）を置く。min-heightで高さを揃え、プレイリスト
@@ -513,18 +523,21 @@ h1 { font-size: 1.1rem; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* FR-1.19：プレイリストが1件も無い場合のガイド表示（FR-5.4の明示的な例外） */
+/* FR-1.19：プレイリストが1件も無い場合のガイド表示（FR-5.4の明示的な例外）。
+   フェーズ29〜30（CR-054）：文字色のみの控えめな表示から、.pill-play-btnと同程度の
+   視覚的な強さを持つ塗りつぶしピル型ボタンに変更した */
 .dest-header-guide {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
   border: none;
-  background: none;
-  padding: 4px;
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 600;
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 
