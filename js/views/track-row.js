@@ -15,6 +15,10 @@
 // ドリルダウン等で画面が変わると確定〈added扱い〉にリセットされる点もあわせて変更）。
 // フェーズ28（CR-048）：行の意匠はカードから横線区切りに変更（CSS側で対応）。アルバム収録曲一覧の
 // 番号表示から末尾のピリオドを削除した（「1.」ではなく「1」）。
+// フェーズ37（再修正2・CR-074）：追加先プレイリストが1件も無い場合でも＋ボタンは常に表示する
+// （search-view.js側で、＋タップ時にその場で作成して追加するダイアログを出す）。これに伴い、
+// ＋ボタン自体を隠すhideAddControlオプションは廃止した。取り消しアイコンは×から巻き戻し
+// アイコンに変更した（iconOnly('rewind')）。
 
 import { typeIcon, iconOnly } from './icons.js';
 
@@ -23,20 +27,17 @@ function escapeHtml(str) {
 }
 
 /**
- * ＋ボタン、静的な「追加済」バッジ（FR-1.20）、取り消し可能な表示（FR-1.21、フェーズ37／CR-073：
- * チェックアイコン＋右上の×バッジ）、または何も表示しない（追加先プレイリストが1件も無い場合。
- * CR-054）のHTMLを組み立てる。
+ * ＋ボタン、静的な「追加済」バッジ（FR-1.20）、または取り消し可能な表示（FR-1.21、フェーズ37／
+ * CR-073：チェックアイコン＋右上の巻き戻しアイコン）のHTMLを組み立てる。
  * @param {number|string} index
  * @param {boolean} added 画面が表示された時点で既に追加先に含まれていたか（FR-1.20。取り消し不可）
- * @param {boolean} hideControl 追加先プレイリストが1件も無いため何も表示しない（CR-054）
  * @param {boolean} justAdded その場（今回の＋タップ）で追加した曲か（FR-1.21。取り消し可能）
  */
-function addControlHtml(index, added, hideControl, justAdded) {
-  if (hideControl) return '';
+function addControlHtml(index, added, justAdded) {
   if (justAdded) {
     return `<span class="added-check-wrap" data-index="${index}">
       <span class="added-check-icon" aria-hidden="true">${iconOnly('check')}</span>
-      <button type="button" class="added-undo-x" data-index="${index}" aria-label="追加を取り消す">${iconOnly('close')}</button>
+      <button type="button" class="added-undo-x" data-index="${index}" aria-label="追加を取り消す">${iconOnly('rewind')}</button>
     </span>`;
   }
   if (added) {
@@ -49,12 +50,11 @@ function addControlHtml(index, added, hideControl, justAdded) {
  * 曲1件分の行（＋ボタンのタップで、現在の追加先プレイリストへ即座に追加する。行タップで試聴の開始／停止）。
  * @param {{id, title, artist, album, artwork}} track
  * @param {number} index
- * @param {{added?: boolean, hideAddControl?: boolean, justAdded?: boolean}} [options] addedは、表示された時点で既に
- *   追加先プレイリストに含まれているか（FR-1.20）。hideAddControlは、追加先プレイリストが1件も無い場合に
- *   ＋ボタン自体を表示しない（CR-054、FR-1.12）。justAddedは、その場で追加した曲か（FR-1.21）
+ * @param {{added?: boolean, justAdded?: boolean}} [options] addedは、表示された時点で既に
+ *   追加先プレイリストに含まれているか（FR-1.20）。justAddedは、その場で追加した曲か（FR-1.21）
  */
 export function trackRowHtml(track, index, options = {}) {
-  const { added = false, hideAddControl = false, justAdded = false } = options;
+  const { added = false, justAdded = false } = options;
   return `
     <li class="list-item track-item" data-index="${index}">
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
@@ -65,7 +65,7 @@ export function trackRowHtml(track, index, options = {}) {
           <div class="item-sub">${escapeHtml(track.artist)}${track.album ? ` / ${escapeHtml(track.album)}` : ''}</div>
         </div>
       </button>
-      ${addControlHtml(index, added, hideAddControl, justAdded)}
+      ${addControlHtml(index, added, justAdded)}
     </li>
   `;
 }
@@ -76,10 +76,10 @@ export function trackRowHtml(track, index, options = {}) {
  * 番号は数字のみを表示し、末尾にピリオドは付けない（CR-048）。
  * @param {{id, title}} track
  * @param {number} index
- * @param {{added?: boolean, hideAddControl?: boolean, justAdded?: boolean}} [options]
+ * @param {{added?: boolean, justAdded?: boolean}} [options]
  */
 export function compactTrackRowHtml(track, index, options = {}) {
-  const { added = false, hideAddControl = false, justAdded = false } = options;
+  const { added = false, justAdded = false } = options;
   return `
     <li class="list-item track-item track-item-compact" data-index="${index}">
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
@@ -88,7 +88,7 @@ export function compactTrackRowHtml(track, index, options = {}) {
           <div class="item-name">${escapeHtml(track.title)}</div>
         </div>
       </button>
-      ${addControlHtml(index, added, hideAddControl, justAdded)}
+      ${addControlHtml(index, added, justAdded)}
     </li>
   `;
 }
@@ -178,7 +178,7 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
       setTimeout(() => {
         if (!wrapEl.isConnected) return;
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = addControlHtml(index, false, false, false);
+        wrapper.innerHTML = addControlHtml(index, false, false);
         const plusBtn = wrapper.firstElementChild;
         plusBtn.classList.add('fading-in');
         wrapEl.replaceWith(plusBtn);
@@ -211,7 +211,7 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
       setTimeout(() => {
         if (!btn.isConnected) return;
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = addControlHtml(index, false, false, true);
+        wrapper.innerHTML = addControlHtml(index, false, true);
         const wrapEl = wrapper.firstElementChild;
         btn.replaceWith(wrapEl);
         bindUndoX(wrapEl, track, index);

@@ -404,7 +404,12 @@ h1 { font-size: 1.1rem; }
 /* フェーズ29（CR-052）：削除ボタンは--danger（薄い赤）ではなく、より鮮やかな赤にする。
    --danger自体（他画面の警告色）は変更しない */
 .dialog-confirm.danger { background: #ff3b30; color: #fff; }
+.dialog-confirm:disabled { opacity: 0.4; }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-bottom: 12px; }
+/* CR-074：プレイリストが無い状態の＋タップから開く、その場で作成するダイアログの名前入力欄。
+   .create-name-input自体は他画面（プレイリスト作成画面）と共通だが、ここでは入力欄の下に
+   ボタン列との間隔が必要なため、このダイアログに限って余白を加える */
+.dialog-box .create-name-input { margin-bottom: 16px; }
 
 /* --- フェーズ5・11：アイコン＋テキストラベル（FR-5.3） --- */
 .icon-label {
@@ -455,6 +460,10 @@ h1 { font-size: 1.1rem; }
   gap: 2px;
 }
 .tab-bar .tab-btn.active { color: var(--accent); font-weight: 600; }
+/* フェーズ37（再修正2）：2つのタブのアイコンの見た目の大きさが揃うよう、各アイコン自体の
+   width/height属性によらず、表示サイズを固定する（プレイリストタブ・検索タブでラベルまでの
+   高さを一致させる） */
+.tab-bar .tab-btn .icon-only svg { width: 20px; height: 20px; }
 
 /* --- フェーズ8：常時表示のミニプレイヤー（FR-4.16, FR-4.17） --- */
 #mini-player {
@@ -587,22 +596,28 @@ h1 { font-size: 1.1rem; }
   align-items: center;
   justify-content: center;
 }
-.added-undo-x svg { width: 9px; height: 9px; }
+.added-undo-x svg { width: 10px; height: 10px; }
 
-/* フェーズ32（CR-057）：これが追加先であることを示す小さなラベル。カードの外に積むと
-   見出し（.screen-header）の高さがプレイリスト一覧タブ分より伸びてしまうため、フェーズ37
-   （再修正）でカードの外に出すのをやめ、カード内の1行に収めた。プレイリストが0件の場合の
-   ガイド表示（.dest-header-guide）はそれ自体で意味が伝わるため対象外 */
+/* フェーズ37（再修正2）：これが追加先であることを示す小さなラベル。カード内の1行に収める
+   配置（前回修正）から、カードの右上に絶対配置する方式に変更した（.dest-header側に
+   position: relativeを与え、そのpadding-topで場所を確保する） */
 .dest-header-label {
-  font-size: 0.65rem;
+  position: absolute;
+  top: 3px;
+  right: 7px;
+  font-size: 0.6rem;
+  line-height: 1;
   color: var(--muted);
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 /* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19）。
    フェーズ37（CR-060）：タップできることを視覚的に誘導するため、カード背景を付けた。
-   フェーズ37（再修正）：「追加先」ラベルもこのカードの中に収め、プレイリスト一覧タブの
-   見出しと高さが揃うようにした --- */
+   フェーズ37（再修正2）：「追加先」ラベルをカードの右上に絶対配置するため、position: relative
+   にしてpadding-topを広げた。CR-074により、プレイリストが1件も無い場合はこのカード自体を
+   表示しない（destinationHeaderHtmlが空文字を返す）ため、ガイド表示用の.dest-header-guideは
+   廃止した --- */
 .dest-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -610,7 +625,7 @@ h1 { font-size: 1.1rem; }
   border: none;
   background: var(--card);
   border-radius: 10px;
-  padding: 4px 8px 4px 8px;
+  padding: 12px 8px 4px 8px;
   color: var(--fg);
   max-width: 55vw;
 }
@@ -620,23 +635,6 @@ h1 { font-size: 1.1rem; }
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* FR-1.19：プレイリストが1件も無い場合のガイド表示（FR-5.4の明示的な例外）。
-   フェーズ29〜30（CR-054）：文字色のみの控えめな表示から、.pill-play-btnと同程度の
-   視覚的な強さを持つ塗りつぶしピル型ボタンに変更した */
-.dest-header-guide {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  border: none;
-  background: var(--accent);
-  color: var(--accent-fg);
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
   white-space: nowrap;
 }
 

@@ -97,6 +97,47 @@ export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel =
 }
 
 /**
+ * プレイリストが1件も無い状態で曲の＋ボタンをタップしたときに表示する、その場でプレイリストを
+ * 作成するための名前入力ダイアログ（CR-074）。作成すると、タップした曲がそのまま追加される
+ * （呼び出し側で行う）。
+ * @returns {Promise<string|null>} 作成するプレイリスト名（空でない、前後の空白を除いた文字列）。
+ *   キャンセル時はnull
+ */
+export function showCreatePlaylistPrompt() {
+  return enqueueDialog(() => new Promise((resolve) => {
+    const message = '曲を追加するには、まずプレイリストを作成してください。\n作成すると、この曲がそのまま追加されます。';
+    const overlay = buildOverlay(`
+      <h2 class="dialog-title">プレイリストがまだありません</h2>
+      <p class="dialog-message">${escapeHtml(message)}</p>
+      <input type="text" class="create-name-input" placeholder="プレイリスト名" aria-label="プレイリスト名">
+      <div class="dialog-actions">
+        <button type="button" class="dialog-btn dialog-cancel">キャンセル</button>
+        <button type="button" class="dialog-btn dialog-confirm" disabled>作成して追加</button>
+      </div>
+    `);
+    const input = overlay.querySelector('.create-name-input');
+    const confirmBtn = overlay.querySelector('.dialog-confirm');
+    const finish = async (result) => {
+      await closeOverlay(overlay); // CR-069：下へスライドして消えるアニメーションを待つ
+      resolve(result);
+    };
+    const currentName = () => input.value.trim();
+    input.addEventListener('input', () => { confirmBtn.disabled = !currentName(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && currentName()) { e.preventDefault(); popBackState(); finish(currentName()); }
+    });
+    // CR-053（FR-6.3）：OSの戻る操作ではキャンセル相当の扱いにする
+    pushBackState(() => finish(null));
+    overlay.querySelector('.dialog-cancel').addEventListener('click', () => { popBackState(); finish(null); });
+    confirmBtn.addEventListener('click', () => { if (currentName()) { popBackState(); finish(currentName()); } });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { popBackState(); finish(null); }
+    });
+    requestAnimationFrame(() => input.focus());
+  }));
+}
+
+/**
  * 通知メッセージ（OKのみ）。処理結果を伝えるための単純な通知（FR-2.4, FR-1.13）。
  * @param {{title?: string, message: string, okLabel?: string}} options
  * @returns {Promise<void>}

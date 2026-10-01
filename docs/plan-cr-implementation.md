@@ -975,6 +975,19 @@ Playwrightスモークテストで、検索タブの見出し高さ（44px）が
 
 ---
 
+## フェーズ38：CR-060・072・073の再修正2、CR-074の新規実装（2026-10-01、完了）
+
+フェーズ37再修正の画面モックを提示したところ、ユーザーから4件の修正要求を受けた。(1) 追加先ラベルをカードの右上に配置（スペースが無ければ文字サイズを調整）、(2) プレイリストタブのアイコンを2連符＋丸みのある四角の意匠に変更し検索タブと高さを揃える、(3) 追加直後の×ボタンを反時計回りの巻き戻しアイコンに変更、に加えて、(4) 検索画面でプレイリストが無いのに右上に追加先表示が出るのは違和感があるとの相談を受けた。(4)については「常時表示のガイドを無くし、＋タップ時にその場で作成するダイアログを出す」という設計を提案し、ユーザーが採用（CR-074として新規登録）。画面モックを提示し、「巻き戻しアイコンの矢じりが見えない」「ダイアログの案内文に改行を入れてほしい」とのフィードバックを受けて修正した上で、ユーザーの「理解したら実装はじめて」との指示によりコード実装した。
+
+- **CR-060（再修正2）**：`css/style.css`の`.dest-header`に`position: relative`を与え、`padding-top`を12pxに広げて上部に余白を確保。`.dest-header-label`を`position: absolute; top: 3px; right: 7px; font-size: 0.6rem`でカードの右上に絶対配置した（カードの高さにはラベルが影響しないため、見出しの高さは変わらずプレイリストタブと揃ったまま）。
+- **CR-072（再修正2）**：`js/views/icons.js`に`playlistTab`アイコン（24×24のviewBoxで、丸みのある四角の枠線の中に、連桁でつながった2つの音符を描いた意匠）を追加し、`js/views/tab-bar-view.js`でプレイリストタブのアイコンを`note`から`playlistTab`に差し替えた。`css/style.css`に`.tab-bar .tab-btn .icon-only svg { width: 20px; height: 20px; }`を追加し、各アイコン自体のSVGのwidth/height属性によらず表示サイズを20pxに固定することで、プレイリストタブ・検索タブのアイコンの大きさ、およびアイコン＋ラベルの高さを揃えた。
+- **CR-073（再修正2）**：`js/views/icons.js`に`rewind`アイコンを追加した。SVGパスは、中心(12,12)・半径8の円のうち、左側（165°〜195°付近）だけを約40°の切れ目として残した約320°の円弧（`stroke-linecap: round`）と、切れ目の上端から反時計回りの進行方向（下向き）を指す、やや大きめ（一辺5前後）の塗りつぶし三角形の矢じりで構成した。`js/views/track-row.js`の`.added-undo-x`アイコンを`iconOnly('close')`から`iconOnly('rewind')`に差し替え、`css/style.css`の`.added-undo-x svg`の表示サイズを9px→10pxに拡大して視認性を上げた（Playwrightで高解像度スクリーンショットを撮り、矢じりが実際に視認できることを確認済み）。
+- **CR-074（新規）**：`js/views/search-view.js`の`destinationHeaderHtml()`を、`currentDestination`が無い場合に空文字を返すだけにし（旧`#dest-guide-btn`のガイド表示を削除）、`bindDestinationHeaderEvents()`からガイドボタンの分岐を削除した。`trackRowHtml`・`compactTrackRowHtml`・`addControlHtml`（track-row.js）から、＋ボタンを隠す`hideAddControl`／`hideControl`オプションを削除し（CR-054由来の非表示機能を廃止）、常に＋ボタンを表示するようにした。`js/views/dialog.js`に`showCreatePlaylistPrompt()`を新設し、他のダイアログ（`showConfirm`/`showMessage`）と同じ`buildOverlay`/`closeOverlay`/`enqueueDialog`/`pushBackState`の仕組みを使って、タイトル・2文に分けた（`\n`を挟んだ）案内文・プレイリスト名の入力欄（`.create-name-input`を流用）・キャンセル／作成して追加ボタンを持つダイアログを実装した（入力が空の間は作成ボタンをdisabledにする）。`search-view.js`の`handleInstantAdd()`を、`currentDestination`が無い場合に`promptCreateDestination()`（`showCreatePlaylistPrompt()`を呼び、キャンセルなら`null`、作成されれば`actions.onCreatePlaylist(name, null)`で作成したプレイリストを返す）を呼び出し、作成できたらそれを新しい`currentDestination`として以降の処理（`actions.onAddTrack`での追加）に合流させるよう変更した。新しく作成した場合は、処理の最後に`rerenderCurrentStep()`を呼び、右上の常時表示（新しいカード）と一覧の状態を再描画する。`playlist-create-view.js`の`renderPlaylistCreate`は、プレイリスト一覧の＋ボタンからの本来の作成画面として引き続き使うため変更していない（検索タブ側の`import`のみ削除）。
+
+Unitテスト132件成功（変更なし。いずれもDOM/非同期ダイアログに依存する変更のためUnitテスト対象外）。Playwrightスモークテストで、(1)プレイリスト0件の状態でも曲の行に＋ボタンが表示されること、(2)＋ボタンをタップすると他のダイアログと同じ意匠・動きのダイアログが現れ、案内文に改行が入っていること、(3)名前を入力して「作成して追加」をタップすると新しいプレイリストが作成されて追加先ヘッダー（ラベルがカード右上）に反映され、曲がチェック＋取り消しバッジの表示になること、(4)プレイリストタブ・検索タブのアイコンの表示サイズ（20×20px）とボタン全体の高さ（55px）が一致すること、(5)取り消しバッジの巻き戻しアイコンを高解像度（4倍）スクリーンショットで確認し、矢じりが視認できることを確認した。コンソールエラーなし。
+
+---
+
 ## 全体の進捗まとめ（2026-09-30時点）
 
 | ドキュメント／フェーズ | 状態 |
@@ -1001,5 +1014,6 @@ Playwrightスモークテストで、検索タブの見出し高さ（44px）が
 | `plan-cr-implementation.md` フェーズ34（CR-063〜065の不具合調査、CR-066〜069の画面モック） | 完了（change-request-form.mdへの登録、画面モックのArtifact提示） |
 | `plan-cr-implementation.md` フェーズ35（CR-063〜069の仕様確定） | 完了（acceptance-criteria.md・acceptance-test-cases.mdに反映。CR-065は見送り。CR-068はFR-4.10との矛盾をユーザーに確認し「戻る機能ごと廃止」で確定） |
 | `plan-cr-implementation.md` フェーズ36（CR-063・064・066〜069の実装） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
-| `plan-cr-implementation.md` フェーズ37（CR-059・060・070〜073の実装） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
+| `plan-cr-implementation.md` フェーズ37（CR-059・060・070〜073の実装、および再修正） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
+| `plan-cr-implementation.md` フェーズ38（CR-060・072・073の再修正2、CR-074の新規実装） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ20（全CR分の受入テスト） | **未着手**（ユーザー指示により、全実装完了後の現時点でも着手せず） |

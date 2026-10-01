@@ -11,14 +11,16 @@
 // フェーズ28（CR-047）：曲の複数選択→一括追加の方式を廃止。画面右上に、現在の追加先プレイリストを
 // ジャケット＋名前で常時表示し（FR-1.19）、＋ボタンのタップで即座にその曲を1曲だけ追加する
 // （FR-1.12）。この常時表示をタップすると、追加先を変更するモーダル（FR-2.4）が開く。
-// プレイリストが1件も無い場合は、常時表示の位置にプレイリスト作成を促すガイドを表示する
-// （FR-1.19、FR-5.4の例外）。
 // フェーズ32（CR-056）：画面が表示された時点で既に追加済みだった曲（FR-1.20、静的な「追加済」
 // バッジ）と、その場（今回の＋タップ）で追加した曲（FR-1.21、取り消し可能な×バッジ付きチェック
 // アイコン）を区別する。後者はこのモジュール内のjustAddedIds（クロージャ変数）で管理し、
 // CR-073：追加先プレイリストの変更・ドリルダウンでの画面遷移・タブの切り替えと復帰・
 // ポップアップ（追加先選択モーダル）を開いて戻ったときのいずれでもリセットし、「追加済」の
 // 確定表示にする。
+// フェーズ37（再修正2・CR-074）：プレイリストが1件も無い場合、右上の常時表示には何も出さず
+// （旧CR-054のガイド表示は廃止）、曲の＋ボタンは常に表示する。＋ボタンをタップした時点で
+// プレイリストが無ければ、その場で作成するダイアログ（showCreatePlaylistPrompt、dialog.js）を
+// 表示し、作成すると新しいプレイリストが追加先になり、タップした曲がそのまま追加される。
 
 import {
   trackRowHtml, compactTrackRowHtml, artistRowHtml, albumRowHtml,
@@ -28,7 +30,7 @@ import { iconOnly } from './icons.js';
 import { largeArtworkUrl } from '../artwork-url.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { showAddDestinationPicker } from './playlist-picker-dialog.js';
-import { renderPlaylistCreate } from './playlist-create-view.js';
+import { showCreatePlaylistPrompt } from './dialog.js';
 import { pushBackState, popBackState } from '../back-stack.js';
 
 function escapeHtml(str) {
@@ -131,14 +133,9 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   }
 
   function destinationHeaderHtml() {
-    if (!currentDestination) {
-      // FR-1.19：プレイリストが1件も無い場合のガイド表示（FR-5.4の明示的な例外）
-      return `
-        <button type="button" id="dest-guide-btn" class="dest-header-guide" aria-label="プレイリストを作成">
-          ${iconOnly('add')}<span>プレイリストを作成</span>
-        </button>
-      `;
-    }
+    // CR-074：プレイリストが1件も無い場合、この位置には何も表示しない（曲の＋ボタンをタップした
+    // 時点で、その場で作成するダイアログを出す方式に一本化したため）
+    if (!currentDestination) return '';
     return `
       <button type="button" id="dest-header-btn" class="dest-header" aria-label="追加先プレイリストを変更">
         <span class="dest-header-label">追加先</span>
@@ -150,24 +147,6 @@ export function renderSearchView(container, { previewPlayer }, actions) {
 
   /** 追加先ヘッダーの開閉・遷移イベントを結びつける。destinationが変わったらonChangedを呼ぶ */
   function bindDestinationHeaderEvents(slot, onChanged) {
-    const guideBtn = slot.querySelector('#dest-guide-btn');
-    if (guideBtn) {
-      guideBtn.addEventListener('click', () => {
-        renderPlaylistCreate(container, {}, {
-          onCancel: () => onChanged(),
-          onSave: async (name, imageBlob) => {
-            const created = await actions.onCreatePlaylist(name, imageBlob);
-            currentDestination = {
-              ...created,
-              artwork: imageBlob ? { source: 'custom', blob: imageBlob } : { source: 'none' },
-            };
-            justAddedIds = new Set(); // フェーズ32（FR-1.21）：新しい追加先には「その場で追加した」曲はまだ無い
-            onChanged();
-          },
-        });
-      });
-      return;
-    }
     const headerBtn = slot.querySelector('#dest-header-btn');
     if (!headerBtn) return;
     headerBtn.addEventListener('click', async () => {
@@ -205,14 +184,39 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     if (!wasLoaded && onFirstLoad) onFirstLoad();
   }
 
-  /** ＋ボタンのタップで、現在の追加先へ即座に1曲追加する（CR-047） */
+  /**
+   * プレイリストが1件も無い状態で＋ボタンがタップされたとき、その場で作成するダイアログを
+   * 表示する（CR-074）。キャンセルするとnullを返す。
+   * @returns {Promise<object|null>} 新しい追加先（{id, name, trackIds, artwork}）。キャンセル時はnull
+   */
+  async function promptCreateDestination() {
+    const name = await showCreatePlaylistPrompt();
+    if (!name) return null;
+    const created = await actions.onCreatePlaylist(name, null);
+    return { ...created, artwork: { source: 'none' } };
+  }
+
+  /**
+   * ＋ボタンのタップで、現在の追加先へ即座に1曲追加する（CR-047）。追加先プレイリストが
+   * 1件も無い場合は、その場で作成するダイアログを表示してから追加する（CR-074）。
+   */
   async function handleInstantAdd(track) {
-    if (!currentDestination) return { added: false };
+    let justCreated = false;
+    if (!currentDestination) {
+      const created = await promptCreateDestination();
+      if (!created) return { added: false };
+      currentDestination = created;
+      justAddedIds = new Set(); // フェーズ32（FR-1.21）：新しい追加先には「その場で追加した」曲はまだ無い
+      justCreated = true;
+    }
     const result = await actions.onAddTrack(currentDestination.id, track.id);
     if (result.added) {
       currentDestination = { ...currentDestination, trackIds: [...currentDestination.trackIds, track.id] };
       justAddedIds.add(track.id); // フェーズ32（FR-1.21）：取り消し可能なチップの対象として記憶する
     }
+    // CR-074：新しく追加先を作った場合は、右上の常時表示を新しいプレイリストで更新するため、
+    // 現在のステップ全体を再描画する（追加先を変更した場合と同じ扱い）
+    if (justCreated) rerenderCurrentStep();
     return result;
   }
 
@@ -268,7 +272,6 @@ export function renderSearchView(container, { previewPlayer }, actions) {
           // 取り消し可能なjustAddedチップにする
           added: addedIds.has(t.id) && !justAddedIds.has(t.id),
           justAdded: justAddedIds.has(t.id),
-          hideAddControl: !currentDestination,
         })),
       ].join('');
 
@@ -495,7 +498,6 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         .map((t, i) => compactTrackRowHtml(t, i, {
           added: addedIds.has(t.id) && !justAddedIds.has(t.id),
           justAdded: justAddedIds.has(t.id),
-          hideAddControl: !currentDestination,
         }))
         .join('');
       bindTrackRowEvents(listEl, albumTracks, {
