@@ -563,14 +563,13 @@ h1 { font-size: 1.1rem; }
   transition: opacity 0.28s ease;
 }
 .added-check-wrap.fading-out { opacity: 0; }
+/* フェーズ37（再修正）：丸い背景（カード）を廃止し、アイコン単体のフラット表示にした */
 .added-check-icon {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--btn-bg);
   color: var(--accent);
 }
 .added-undo-x {
@@ -590,33 +589,28 @@ h1 { font-size: 1.1rem; }
 }
 .added-undo-x svg { width: 9px; height: 9px; }
 
-/* フェーズ32（CR-057）：追加先プレイリスト常時表示の上に添える、これが追加先であることを
-   示す小さなラベル。プレイリストが0件の場合のガイド表示（.dest-header-guide）はそれ自体で
-   意味が伝わるため対象外 */
-.dest-header-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
-  max-width: 55vw;
-}
+/* フェーズ32（CR-057）：これが追加先であることを示す小さなラベル。カードの外に積むと
+   見出し（.screen-header）の高さがプレイリスト一覧タブ分より伸びてしまうため、フェーズ37
+   （再修正）でカードの外に出すのをやめ、カード内の1行に収めた。プレイリストが0件の場合の
+   ガイド表示（.dest-header-guide）はそれ自体で意味が伝わるため対象外 */
 .dest-header-label {
   font-size: 0.65rem;
   color: var(--muted);
-  padding-right: 4px;
+  flex-shrink: 0;
 }
 /* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19）。
-   フェーズ37（CR-060）：タップできることを視覚的に誘導するため、カード背景を付けた --- */
+   フェーズ37（CR-060）：タップできることを視覚的に誘導するため、カード背景を付けた。
+   フェーズ37（再修正）：「追加先」ラベルもこのカードの中に収め、プレイリスト一覧タブの
+   見出しと高さが揃うようにした --- */
 .dest-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   border: none;
   background: var(--card);
   border-radius: 10px;
-  padding: 4px 8px 4px 4px;
+  padding: 4px 8px 4px 8px;
   color: var(--fg);
   max-width: 55vw;
 }

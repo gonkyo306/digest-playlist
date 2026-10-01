@@ -140,13 +140,11 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       `;
     }
     return `
-      <div class="dest-header-wrap">
+      <button type="button" id="dest-header-btn" class="dest-header" aria-label="追加先プレイリストを変更">
         <span class="dest-header-label">追加先</span>
-        <button type="button" id="dest-header-btn" class="dest-header" aria-label="追加先プレイリストを変更">
-          ${destinationArtworkImgHtml(currentDestination.artwork, currentDestination.id)}
-          <span class="dest-header-name">${escapeHtml(currentDestination.name)}</span>
-        </button>
-      </div>
+        ${destinationArtworkImgHtml(currentDestination.artwork, currentDestination.id)}
+        <span class="dest-header-name">${escapeHtml(currentDestination.name)}</span>
+      </button>
     `;
   }
 
