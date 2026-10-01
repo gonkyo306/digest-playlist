@@ -22,6 +22,8 @@ const ICONS = {
   close: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.99 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
   // CR-043/047/049：プレイリスト作成画面・編集モードの保存ボタン、＋タップ後の即時追加の合図（チェックのみ）
   check: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 16.17L4.83 12l-1.41 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+  // フェーズ37（CR-072）：タブバーの検索タブ用アイコン（虫眼鏡。カード等の背景は付けない）
+  search: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M10.5 4a6.5 6.5 0 110 13 6.5 6.5 0 010-13z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M15.3 15.3L20.5 20.5"/></svg>',
 };
 
 /**

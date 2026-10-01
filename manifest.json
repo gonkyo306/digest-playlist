@@ -1,6 +1,6 @@
 {
-  "name": "ダイジェスト・プレイリスト",
-  "short_name": "プレイリスト",
+  "name": "Playlish",
+  "short_name": "Playlish",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

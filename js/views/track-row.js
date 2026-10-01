@@ -9,6 +9,10 @@
 // チェックアイコンへ、余韻を残すアニメーションを伴って変化し、その後「取り消し可能」な表示に
 // 置き換わる（フェーズ32／CR-056、FR-1.21）。表示された時点で既に追加先に含まれている曲は、
 // 最初から静的な「追加済」バッジを表示する（FR-1.20、取り消し不可）。
+// フェーズ37（CR-073）：取り消し可能な表示を、「追加済×」のピル型チップから、チェックアイコン
+// （直線のみ）の右上に小さい×バッジを重ねる表示に変更した。×バッジをタップして取り消すと、
+// フェードアウトした後、＋ボタンにフェードインで戻る（search-view.js側のjustAddedIdsが、
+// ドリルダウン等で画面が変わると確定〈added扱い〉にリセットされる点もあわせて変更）。
 // フェーズ28（CR-048）：行の意匠はカードから横線区切りに変更（CSS側で対応）。アルバム収録曲一覧の
 // 番号表示から末尾のピリオドを削除した（「1.」ではなく「1」）。
 
@@ -19,8 +23,9 @@ function escapeHtml(str) {
 }
 
 /**
- * ＋ボタン、静的な「追加済」バッジ（FR-1.20）、取り消し可能なチップ（FR-1.21、フェーズ32／CR-056）、
- * または何も表示しない（追加先プレイリストが1件も無い場合。CR-054）のHTMLを組み立てる。
+ * ＋ボタン、静的な「追加済」バッジ（FR-1.20）、取り消し可能な表示（FR-1.21、フェーズ37／CR-073：
+ * チェックアイコン＋右上の×バッジ）、または何も表示しない（追加先プレイリストが1件も無い場合。
+ * CR-054）のHTMLを組み立てる。
  * @param {number|string} index
  * @param {boolean} added 画面が表示された時点で既に追加先に含まれていたか（FR-1.20。取り消し不可）
  * @param {boolean} hideControl 追加先プレイリストが1件も無いため何も表示しない（CR-054）
@@ -29,7 +34,10 @@ function escapeHtml(str) {
 function addControlHtml(index, added, hideControl, justAdded) {
   if (hideControl) return '';
   if (justAdded) {
-    return `<button type="button" class="added-badge-undo" data-index="${index}" aria-label="追加を取り消す">追加済<span class="added-badge-x">${iconOnly('close')}</span></button>`;
+    return `<span class="added-check-wrap" data-index="${index}">
+      <span class="added-check-icon" aria-hidden="true">${iconOnly('check')}</span>
+      <button type="button" class="added-undo-x" data-index="${index}" aria-label="追加を取り消す">${iconOnly('close')}</button>
+    </span>`;
   }
   if (added) {
     return '<span class="added-badge" aria-label="追加済み">追加済</span>';
@@ -125,12 +133,12 @@ export function albumRowHtml(album, index, options = {}) {
 }
 
 /**
- * トラック行のイベント（試聴の開始／停止・＋ボタンでの即時追加・取り消し可能チップでの取消）を
+ * トラック行のイベント（試聴の開始／停止・＋ボタンでの即時追加・×バッジでの取消）を
  * 結びつける。行タップ（＋ボタン部分を除く）で、その曲の試聴を開始／停止する（CR-033）。
  * ＋ボタンをタップすると、即座にonAddを呼んで追加する。追加が成立したら、＋アイコンを
- * 一瞬チェックアイコンに変化させてから（余韻）、取り消し可能なチップに置き換える
- * （CR-047／フェーズ32・CR-056、FR-1.21）。このチップをタップするとonRemoveを呼び、
- * 成立したら＋ボタンの表示に戻す。
+ * 一瞬チェックアイコンに変化させてから（余韻）、チェックアイコン＋右上の×バッジの表示に
+ * 置き換える（CR-047／フェーズ37・CR-073、FR-1.21）。×バッジをタップするとonRemoveを呼び、
+ * 成立したらフェードアウト→フェードインで＋ボタンの表示に戻す。
  * @param {HTMLElement} listEl trackRowHtml/compactTrackRowHtmlをmapしたulなどの要素
  * @param {Array<object>} tracks
  * @param {{previewPlayer: import('../preview-player.js').PreviewPlayer,
@@ -149,25 +157,35 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
     });
   });
 
-  function bindUndoChip(chipBtn, track, index) {
-    chipBtn.addEventListener('click', async () => {
-      chipBtn.disabled = true;
+  /** CR-073：チェックアイコン右上の×バッジをタップして取り消す。成立したらフェードアウト→
+   * フェードインで＋ボタンに戻す */
+  function bindUndoX(wrapEl, track, index) {
+    const xBtn = wrapEl.querySelector('.added-undo-x');
+    xBtn.addEventListener('click', async () => {
+      xBtn.disabled = true;
       let result;
       try {
         result = await onRemove(track);
       } catch {
         result = { removed: false };
       }
-      if (!chipBtn.isConnected) return; // 待っている間に画面が切り替わっていれば何もしない
+      if (!wrapEl.isConnected) return; // 待っている間に画面が切り替わっていれば何もしない
       if (!result || !result.removed) {
-        chipBtn.disabled = false;
+        xBtn.disabled = false;
         return;
       }
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = addControlHtml(index, false, false, false);
-      const plusBtn = wrapper.firstElementChild;
-      chipBtn.replaceWith(plusBtn);
-      bindAddButton(plusBtn, track, index);
+      wrapEl.classList.add('fading-out');
+      setTimeout(() => {
+        if (!wrapEl.isConnected) return;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = addControlHtml(index, false, false, false);
+        const plusBtn = wrapper.firstElementChild;
+        plusBtn.classList.add('fading-in');
+        wrapEl.replaceWith(plusBtn);
+        // 次のフレームでクラスを外し、フェードインのtransitionを発火させる
+        requestAnimationFrame(() => plusBtn.classList.remove('fading-in'));
+        bindAddButton(plusBtn, track, index);
+      }, 280);
     });
   }
 
@@ -194,9 +212,9 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
         if (!btn.isConnected) return;
         const wrapper = document.createElement('div');
         wrapper.innerHTML = addControlHtml(index, false, false, true);
-        const chipBtn = wrapper.firstElementChild;
-        btn.replaceWith(chipBtn);
-        bindUndoChip(chipBtn, track, index);
+        const wrapEl = wrapper.firstElementChild;
+        btn.replaceWith(wrapEl);
+        bindUndoX(wrapEl, track, index);
       }, 650);
     });
   }
@@ -206,9 +224,9 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
     bindAddButton(btn, track, btn.dataset.index);
   });
 
-  listEl.querySelectorAll('.added-badge-undo').forEach((btn) => {
-    const track = tracks[Number(btn.dataset.index)];
-    bindUndoChip(btn, track, btn.dataset.index);
+  listEl.querySelectorAll('.added-check-wrap').forEach((wrapEl) => {
+    const track = tracks[Number(wrapEl.dataset.index)];
+    bindUndoX(wrapEl, track, wrapEl.dataset.index);
   });
 }
 

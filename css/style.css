@@ -123,6 +123,12 @@ h1 { font-size: 1.1rem; }
   color: var(--fg);
   font-size: 1rem;
 }
+/* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
+   アクセントカラーの枠線に差し替える */
+.inline-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 .list { list-style: none; margin: 0; padding: 0; }
 .list .empty {
   color: var(--muted);
@@ -286,8 +292,15 @@ h1 { font-size: 1.1rem; }
   font-family: inherit;
   background: transparent;
   border: none;
+  border-radius: 8px;
   padding: 8px 12px;
   color: var(--fg);
+}
+/* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
+   アクセントカラーの枠線に差し替える（borderが無い欄のため、box-shadowで枠を表現する） */
+.hero-name-input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 /* フェーズ28（CR-044）：編集モード中は、ヒーロー画像自体がタップ可能な画像選択ボタンになる。
    ボタンの既定のスタイル（枠線・背景・パディング）を打ち消し、画像だけが見える状態にする */
@@ -312,6 +325,7 @@ h1 { font-size: 1.1rem; }
   justify-content: center;
   background: var(--btn-bg);
   color: var(--fg);
+  transition: opacity 0.28s ease; /* フェーズ37（CR-073）：取り消し後のフェードイン */
 }
 /* フェーズ24（CR-039）：選択済みのときは背景を赤く塗る方式をやめ、＋の文字色だけをアクセント
    カラー（青）に変える方式にした（背景はis-selectedでも変化しない） */
@@ -426,13 +440,19 @@ h1 { font-size: 1.1rem; }
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 500;
 }
+/* フェーズ37（CR-072）：アイコンをラベルの上に縦に並べる。アイコン自体はカード等の背景を
+   持たず単体で表示する（NFR-5.7のアイコン単体表示の方針に合わせる） */
 .tab-bar .tab-btn {
   flex: 1;
   background: none;
   border: none;
   color: var(--muted);
-  padding: 12px 4px;
-  font-size: 0.85rem;
+  padding: 8px 4px 10px;
+  font-size: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 .tab-bar .tab-btn.active { color: var(--accent); font-weight: 600; }
 
@@ -518,41 +538,57 @@ h1 { font-size: 1.1rem; }
   white-space: nowrap;
 }
 
-/* フェーズ32（CR-056、FR-1.21）：その場で追加した曲の、取り消し可能なチップ。
-   .added-badgeと同じ見た目（青いアウトラインのピル型）をベースに、右側に塗りつぶしの
-   ×アイコンを添えて「タップして取り消せる」ことを示す */
-.added-badge-undo {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 1px 4px 1px 8px;
-  background: none;
-  white-space: nowrap;
-}
-.added-badge-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-.added-badge-x svg { width: 9px; height: 9px; }
-
 /* フェーズ28（CR-047）：＋ボタンをタップした瞬間、チェックアイコンへ余韻を残しながら変化させる */
 .toggle-add-btn.add-btn-confirmed {
   color: var(--accent);
   transform: scale(1.15);
   transition: color 0.4s ease, transform 0.3s ease;
 }
+/* フェーズ37（CR-073）：取り消し可能な状態の、＋ボタンへのフェードイン（×タップ後に差し替わった
+   直後はopacity:0から始め、次のフレームでこのクラスを外してフェードインさせる） */
+.toggle-add-btn.fading-in { opacity: 0; }
+
+/* フェーズ37（CR-073）：その場で追加した曲の、取り消し可能な表示。CR-056の「追加済×」の
+   ピル型チップから、チェックアイコン（直線のみ。.toggle-add-btn.add-btn-confirmedと同じ意匠）の
+   右上に小さい×バッジを重ねる表示に変更した。×バッジのみがタップ対象（取り消し操作）で、
+   チェックアイコン自体はタップしても何も起きない */
+.added-check-wrap {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.28s ease;
+}
+.added-check-wrap.fading-out { opacity: 0; }
+.added-check-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--btn-bg);
+  color: var(--accent);
+}
+.added-undo-x {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg);
+  background: var(--btn-bg);
+  color: var(--fg);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.added-undo-x svg { width: 9px; height: 9px; }
 
 /* フェーズ32（CR-057）：追加先プレイリスト常時表示の上に添える、これが追加先であることを
    示す小さなラベル。プレイリストが0件の場合のガイド表示（.dest-header-guide）はそれ自体で
@@ -570,15 +606,17 @@ h1 { font-size: 1.1rem; }
   color: var(--muted);
   padding-right: 4px;
 }
-/* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19） --- */
+/* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19）。
+   フェーズ37（CR-060）：タップできることを視覚的に誘導するため、カード背景を付けた --- */
 .dest-header {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
   border: none;
-  background: none;
-  padding: 4px;
+  background: var(--card);
+  border-radius: 10px;
+  padding: 4px 8px 4px 4px;
   color: var(--fg);
   max-width: 55vw;
 }
@@ -647,6 +685,12 @@ h1 { font-size: 1.1rem; }
   color: var(--fg);
   font-size: 1rem;
 }
+/* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
+   アクセントカラーの枠線に差し替える */
+.create-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 
 /* --- フェーズ10・CR-012：アルバムの全曲一時再生（FR-1.11） --- */
 .shuffle-btn.active { background: var(--accent); color: var(--accent-fg); }
@@ -663,11 +707,11 @@ h1 { font-size: 1.1rem; }
 /* フェーズ22（仕様見直し）で、ジャケットが無く行が低くなっていたため高さを揃えようとしたが、
    フェーズ23の＋ボタン導入に伴う行の再構成でmin-height指定が過大（64px）になり、
    ジャケット付きの行より高くなってしまっていた（CR-042）。
-   ジャケット画像1個分（44px）を置いたと仮定した高さ（.list-item-mainのpadding 6px×2を含めて
-   56px）を確保することで、ジャケット付きの行と同じ高さ（外側の.list-itemのpadding 8px×2と
-   合わせて合計72px）になるよう修正した。gap: 14pxはCR-067（番号と曲名の間隔拡大） */
+   ジャケット画像1個分（44px）を置いたと仮定した高さを確保することで、他の曲一覧と同じ高さに
+   揃えていたが、フェーズ37（CR-071）でアルバム収録曲一覧だけは意図的にやや低くする例外を
+   設け、56px→44px（合計72px→60px）に詰めた。gap: 14pxはCR-067（番号と曲名の間隔拡大） */
 .track-item-compact .track-play {
-  min-height: 56px;
+  min-height: 44px;
   gap: 14px;
 }
 

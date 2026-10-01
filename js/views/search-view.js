@@ -14,9 +14,11 @@
 // プレイリストが1件も無い場合は、常時表示の位置にプレイリスト作成を促すガイドを表示する
 // （FR-1.19、FR-5.4の例外）。
 // フェーズ32（CR-056）：画面が表示された時点で既に追加済みだった曲（FR-1.20、静的な「追加済」
-// バッジ）と、その場（今回の＋タップ）で追加した曲（FR-1.21、取り消し可能なチップ）を区別する。
-// 後者はこのモジュール内のjustAddedIds（クロージャ変数）で管理し、追加先プレイリストを
-// 変更したときにリセットする。
+// バッジ）と、その場（今回の＋タップ）で追加した曲（FR-1.21、取り消し可能な×バッジ付きチェック
+// アイコン）を区別する。後者はこのモジュール内のjustAddedIds（クロージャ変数）で管理し、
+// CR-073：追加先プレイリストの変更・ドリルダウンでの画面遷移・タブの切り替えと復帰・
+// ポップアップ（追加先選択モーダル）を開いて戻ったときのいずれでもリセットし、「追加済」の
+// 確定表示にする。
 
 import {
   trackRowHtml, compactTrackRowHtml, artistRowHtml, albumRowHtml,
@@ -81,8 +83,16 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   let currentDestination = null; // { id, name, trackIds, artwork } | null（プレイリストが1件も無い場合）
   let destinationLoaded = false;
   // フェーズ32（CR-056、FR-1.21）：その場（今回の＋タップ）で追加した曲のtrackId集合。
-  // 追加先プレイリストが変わったらリセットする
+  // CR-073：追加先プレイリストを変えたとき・ドリルダウンで画面が変わったとき・タブを
+  // 切り替えて戻ってきたとき・ポップアップを開いて戻ってきたときのいずれでもリセットし、
+  // 取り消し可能な表示を「追加済」の確定表示にする
   let justAddedIds = new Set();
+
+  /** modeを実際に変更する場合のみjustAddedIdsをリセットする（同じステップの再描画では維持する） */
+  function enterStep(newMode) {
+    if (mode !== newMode) justAddedIds = new Set();
+    mode = newMode;
+  }
 
   function teardownObserver() {
     if (observer) {
@@ -169,11 +179,14 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const chosenId = await showAddDestinationPicker(withArtwork, {
         lastUsedPlaylistId: actions.onGetLastUsedPlaylistId(),
       });
-      if (chosenId && (!currentDestination || chosenId !== currentDestination.id)) {
+      // CR-073：ポップアップ（追加先選択モーダル）を開いて戻ってくると、選択を変えたかどうかに
+      // 関わらず、取り消し可能な表示を「追加済」の確定表示にする
+      const changed = chosenId && (!currentDestination || chosenId !== currentDestination.id);
+      if (changed) {
         currentDestination = withArtwork.find((p) => p.id === chosenId) || currentDestination;
-        justAddedIds = new Set(); // フェーズ32（FR-1.21）：追加先を変更したらリセットする
-        onChanged();
       }
+      justAddedIds = new Set();
+      onChanged();
     });
   }
 
@@ -228,7 +241,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   // ------- 検索結果ステップ（曲・アーティスト・アルバム混在） -------
 
   function renderResultsStep() {
-    mode = 'results';
+    enterStep('results');
     container.innerHTML = `
       <div class="screen-header">
         <h1>曲を検索</h1>
@@ -366,7 +379,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   }
 
   async function loadArtistAlbums() {
-    mode = 'albums';
+    enterStep('albums');
     container.innerHTML = `<div class="note">アルバムを取得中…</div>`;
     // CR-053（FR-6.3）：アーティストのアルバム一覧へのドリルダウンを1段階の遷移として履歴に積む
     pushBackState(renderResultsStep);
@@ -383,7 +396,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   }
 
   function renderAlbumsStep() {
-    mode = 'albums';
+    enterStep('albums');
     container.innerHTML = `
       <div class="screen-header">
         ${backButtonHtml('back-to-results', '検索結果へ戻る')}
@@ -412,7 +425,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   // ------- アルバム収録曲一覧ステップ -------
 
   async function loadAlbumTracksFromResults() {
-    mode = 'tracks';
+    enterStep('tracks');
     container.innerHTML = `<div class="note">収録曲を取得中…</div>`;
     // CR-053（FR-6.3）：収録曲一覧へのドリルダウンを1段階の遷移として履歴に積む。
     // 戻り先はこの時点のprevious ModeForTracks（albums/results）で決まる
@@ -433,7 +446,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   }
 
   function renderAlbumTracksStep() {
-    mode = 'tracks';
+    enterStep('tracks');
     const canPlayAlbum = albumTracks.length > 0;
     const backTarget = previousModeForTracks === 'albums' ? renderAlbumsStep : renderResultsStep;
     const backLabel = previousModeForTracks === 'albums' ? 'アルバム一覧へ戻る' : '検索結果へ戻る';
@@ -505,9 +518,12 @@ export function renderSearchView(container, { previewPlayer }, actions) {
      * 検索タブが（再マウントではなく）表示状態に切り替わった際に呼ぶ。プレイリストタブ側で
      * 作成・削除された内容を反映するため、追加先プレイリストの常時表示（FR-1.19）を
      * 再解決してから、現在のステップを再描画する（ネットワークの再検索は行わない）。
+     * CR-073：他のタブを開いて検索タブに戻ってきた場合も、取り消し可能な表示を
+     * 「追加済」の確定表示にする
      */
     onTabActivated() {
       destinationLoaded = false;
+      justAddedIds = new Set();
       rerenderCurrentStep();
     },
   };
