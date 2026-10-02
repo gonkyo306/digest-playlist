@@ -19,6 +19,7 @@ import { enqueueDialog, buildOverlay, closeOverlay } from './dialog.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { iconOnly } from './icons.js';
 import { pushBackState, popBackState } from '../back-stack.js';
+import { marqueeHtml, setupMarquees } from '../marquee.js';
 
 /** showAddDestinationPickerの＋ボタンがタップされたことを示す戻り値（CR-061） */
 export const CREATE_NEW = '__create_new__';
@@ -64,7 +65,7 @@ function openPickerList(playlists, lastUsedPlaylistId = null, showCreateButton =
                 <button type="button" class="list-item-main playlist-picker-item" data-id="${escapeHtml(m.id)}">
                   ${pickerRowArtworkHtml(m, m.artwork)}
                   <span class="item-main">
-                    <div class="item-name">${escapeHtml(m.name)}</div>
+                    ${marqueeHtml(m.name)}
                     <div class="item-sub">${m.trackIds.length}曲</div>
                   </span>
                   ${m.id === lastUsedPlaylistId ? '<span class="picker-last-used-badge">前回追加</span>' : ''}
@@ -76,6 +77,9 @@ function openPickerList(playlists, lastUsedPlaylistId = null, showCreateButton =
         <button type="button" class="dialog-btn dialog-cancel">キャンセル</button>
       </div>
     `);
+
+    // フェーズ42：プレイリスト名が1行に収まらないときは自動スクロールする
+    setupMarquees(overlay);
 
     const finish = async (id) => {
       await closeOverlay(overlay); // CR-069：下へスライドして消えるアニメーションを待つ

@@ -38,6 +38,7 @@ import { largeArtworkUrl } from '../artwork-url.js';
 import { resizeImageToJpeg } from '../image-resize.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { pushBackState, popBackState } from '../back-stack.js';
+import { marqueeHtml, setupMarquees } from '../marquee.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -144,7 +145,7 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, f
               <button type="button" class="list-item-main track-play"${editMode ? ' disabled' : ''}>
                 <img src="${escapeHtml(t.artwork)}" alt="" class="artwork-sm">
                 <div class="item-main">
-                  <div class="item-name">${escapeHtml(t.title)}</div>
+                  ${marqueeHtml(t.title)}
                   <div class="item-sub">${escapeHtml(t.artist)}</div>
                 </div>
               </button>
@@ -155,6 +156,9 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, f
           `).join('')}
       </ul>
     `;
+
+    // フェーズ42：曲名が1行に収まらないときは自動スクロールする
+    setupMarquees(container);
 
     if (editMode) {
       container.querySelector('#cancel-edit-btn').addEventListener('click', () => {

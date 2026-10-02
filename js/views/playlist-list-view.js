@@ -11,6 +11,7 @@
 
 import { iconOnly } from './icons.js';
 import { blobToUrl } from '../blob-url-cache.js';
+import { marqueeHtml, setupMarquees } from '../marquee.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -58,12 +59,14 @@ export function renderPlaylistList(container, playlists, actions) {
             <button class="list-item-main playlist-open" data-id="${escapeHtml(m.id)}">
               ${playlistArtworkHtml(m, m.artwork)}
               <div class="item-main">
-                <div class="item-name">${escapeHtml(m.name)}</div>
+                ${marqueeHtml(m.name)}
                 <div class="item-sub">${m.trackIds.length}曲</div>
               </div>
             </button>
           </li>
         `).join('');
+    // フェーズ42：プレイリスト名が1行に収まらないときは自動スクロールする
+    setupMarquees(listEl);
     listEl.querySelectorAll('.playlist-open').forEach((btn) => {
       btn.addEventListener('click', () => actions.onOpen(btn.dataset.id));
     });

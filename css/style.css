@@ -35,6 +35,9 @@
   }
 }
 * { box-sizing: border-box; }
+/* フェーズ42：ページの端までスクロールしたときの、ブラウザ・OS既定の端の演出（Androidの青い光など）や
+   引っ張って更新を出さない */
+html, body { overscroll-behavior: none; }
 body {
   margin: 0;
   padding: 16px;
@@ -156,6 +159,8 @@ h1 { font-size: 1.1rem; }
 }
 .list-item-main {
   flex: 1;
+  /* フェーズ42：長いタイトルで行が横に膨らまないよう、内容幅に合わせて広がらせない（自動スクロールの前提） */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -227,7 +232,7 @@ h1 { font-size: 1.1rem; }
 }
 /* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を8px→12pxに広げる（NFR-5.7） */
-.detail-topbar-actions { display: flex; gap: 12px; }
+.detail-topbar-actions { display: flex; gap: 0; }
 
 /* --- フェーズ21（CR-034）：Apple Music風のヘッダー（大きめジャケット・名前・ピル型再生ボタン） --- */
 .hero {
@@ -702,11 +707,14 @@ h1 { font-size: 1.1rem; }
 }
 .marquee-track {
   display: inline-flex;
+  /* フェーズ42：幅は常にテキスト2つ分（コンテナの幅に縮めない）にして、translateX(-50%)がちょうど
+     テキスト1つ分の移動になるようにする */
+  width: max-content;
   white-space: nowrap;
 }
-.marquee-track .marquee-text { padding-right: 32px; }
+.marquee-track .marquee-text { padding-right: 32px; flex-shrink: 0; }
 .marquee.scrolling .marquee-track {
-  animation: marquee-scroll 8s linear infinite;
+  animation: marquee-scroll var(--marquee-duration, 8s) linear infinite;
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }

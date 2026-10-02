@@ -30,6 +30,7 @@ import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
 import { pushBackState, popBackState } from './back-stack.js';
+import { setupMarquees } from './marquee.js';
 
 const playlistPaneEl = document.getElementById('playlist-pane');
 const searchPaneEl = document.getElementById('search-pane');
@@ -191,6 +192,8 @@ function applyTabVisibility() {
   renderTabBarUi();
   playlistPaneEl.classList.toggle('tab-pane-hidden', activeTab !== 'playlist');
   searchPaneEl.classList.toggle('tab-pane-hidden', activeTab !== 'search');
+  // フェーズ42：非表示のまま描画された画面は幅が0で自動スクロールの判定ができないため、表示したときに判定し直す
+  setupMarquees(activeTab === 'playlist' ? playlistPaneEl : searchPaneEl);
   renderMiniPlayerBar();
 }
 

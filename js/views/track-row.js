@@ -21,6 +21,7 @@
 // アイコンに変更した（iconOnly('rewind')）。
 
 import { typeIcon, iconOnly } from './icons.js';
+import { marqueeHtml, setupMarquees } from '../marquee.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -61,7 +62,7 @@ export function trackRowHtml(track, index, options = {}) {
         ${typeIcon('track')}
         <img src="${escapeHtml(track.artwork)}" alt="" class="artwork-sm">
         <div class="item-main">
-          <div class="item-name">${escapeHtml(track.title)}</div>
+          ${marqueeHtml(track.title)}
           <div class="item-sub">${escapeHtml(track.artist)}${track.album ? ` / ${escapeHtml(track.album)}` : ''}</div>
         </div>
       </button>
@@ -85,7 +86,7 @@ export function compactTrackRowHtml(track, index, options = {}) {
       <button type="button" class="list-item-main track-play" data-index="${index}" aria-label="試聴">
         <span class="track-number">${index + 1}</span>
         <div class="item-main">
-          <div class="item-name">${escapeHtml(track.title)}</div>
+          ${marqueeHtml(track.title)}
         </div>
       </button>
       ${addControlHtml(index, added, justAdded)}
@@ -103,7 +104,7 @@ export function artistRowHtml(artist, index) {
     <li class="list-item" data-index="${index}">
       <button type="button" class="list-item-main result-artist-open" data-index="${index}">
         ${typeIcon('artist')}
-        <span class="item-name">${escapeHtml(artist.name)}</span>
+        <div class="item-main">${marqueeHtml(artist.name)}</div>
       </button>
     </li>
   `;
@@ -124,7 +125,7 @@ export function albumRowHtml(album, index, options = {}) {
         ${showTypeIcon ? typeIcon('album') : ''}
         <img src="${escapeHtml(album.artwork)}" alt="" class="artwork-sm">
         <div class="item-main">
-          <div class="item-name">${escapeHtml(album.name)}</div>
+          ${marqueeHtml(album.name)}
           <div class="item-sub">${escapeHtml(album.artist)}</div>
         </div>
       </button>
@@ -146,6 +147,8 @@ export function albumRowHtml(album, index, options = {}) {
  *   onRemove: (track: object) => Promise<{removed: boolean}>}} handlers
  */
 export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRemove }) {
+  // フェーズ42：曲名が1行に収まらないときは自動スクロールする
+  setupMarquees(listEl);
   listEl.querySelectorAll('.track-play').forEach((btn) => {
     const track = tracks[Number(btn.dataset.index)];
     btn.addEventListener('click', () => {
@@ -245,6 +248,7 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
  * @param {(artist: object) => void} onOpen
  */
 export function bindArtistRowEvents(listEl, artists, onOpen) {
+  setupMarquees(listEl);
   listEl.querySelectorAll('.result-artist-open').forEach((btn) => {
     const artist = artists[Number(btn.dataset.index)];
     btn.addEventListener('click', () => onOpen(artist));
@@ -258,6 +262,7 @@ export function bindArtistRowEvents(listEl, artists, onOpen) {
  * @param {(album: object) => void} onOpen
  */
 export function bindAlbumRowEvents(listEl, albums, onOpen) {
+  setupMarquees(listEl);
   listEl.querySelectorAll('.result-album-open').forEach((btn) => {
     const album = albums[Number(btn.dataset.index)];
     btn.addEventListener('click', () => onOpen(album));

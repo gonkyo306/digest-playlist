@@ -4,7 +4,7 @@
 // ブラウザが新しいService Workerの存在に気づかず、インストール済みの端末にはいつまでも古い
 // キャッシュ（index.html・css/style.css・js/*等）が配信され続けてしまう（フェーズ40で発覚。
 // フェーズ22（v11）以降、CACHE_NAMEが一度も更新されていなかった）
-const CACHE_NAME = 'digest-playlist-shell-v13';
+const CACHE_NAME = 'digest-playlist-shell-v14';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',
