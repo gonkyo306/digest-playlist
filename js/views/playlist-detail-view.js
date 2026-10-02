@@ -69,6 +69,9 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, f
   // CR-044（FR-2.19）：編集モード中に選び直した画像（undefined=未変更、Blob=変更あり）
   let pendingImageBlob;
   let pendingImageObjectUrl = null;
+  // フェーズ43：編集モードに入る直前の見出し（プレイリスト名）の高さ。名前が2行以上に折り返す場合も、
+  // 編集欄をその高さに揃えて、名前より下（再生ボタン・曲一覧）の位置が変わらないようにする
+  let nameBlockHeight = 0;
 
   // CR-053（FR-6.3）：OSの戻る操作でも、編集モードのキャンセルと同じ扱いで抜けられるようにする
   function cancelEdit() {
@@ -125,7 +128,7 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, f
           ? `<img src="${escapeHtml(heroArtworkUrl)}" alt="" class="hero-artwork">`
           : `<div class="hero-artwork hero-artwork-placeholder">${iconOnly('disc')}</div>`)}
         ${editMode
-          ? `<input type="text" id="edit-name-input" class="hero-name-input" value="${escapeHtml(editName)}" aria-label="プレイリスト名">`
+          ? `<input type="text" id="edit-name-input" class="hero-name-input" value="${escapeHtml(editName)}" aria-label="プレイリスト名"${nameBlockHeight ? ` style="height:${nameBlockHeight}px"` : ''}>`
           : `<h1 class="hero-name">${escapeHtml(playlist.name)}</h1>`}
         <div class="hero-actions${editMode ? ' is-disabled' : ''}"${editMode ? ' aria-hidden="true"' : ''}>
           <button id="shuffle-btn" class="icon-btn shuffle-btn${shuffleOn ? ' active' : ''}" aria-label="シャッフル" aria-pressed="${shuffleOn}"${canPlay && !editMode ? '' : ' disabled'}>${iconOnly('shuffle')}</button>
@@ -197,6 +200,7 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, f
         actions.onBack();
       });
       container.querySelector('#edit-btn').addEventListener('click', () => {
+        nameBlockHeight = container.querySelector('.hero-name')?.getBoundingClientRect().height || 0;
         editMode = true;
         render();
         // CR-053（FR-6.3）：編集モードに入ったことを1段階の遷移として履歴に積む

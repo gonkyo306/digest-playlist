@@ -263,6 +263,8 @@ h1 { font-size: 1.1rem; }
 .hero-name {
   margin: 0;
   font-size: 1.2rem;
+  /* フェーズ43：編集欄（.hero-name-input）と行の高さを揃え、編集に入っても下の要素が動かないようにする */
+  line-height: 1.3;
 }
 .hero-actions {
   display: flex;
@@ -308,6 +310,11 @@ h1 { font-size: 1.1rem; }
      上下にずれないようにする（左右の余白だけ付ける） */
   padding: 0 12px;
   color: var(--fg);
+  /* フェーズ43：入力欄の高さは端末のフォントで変わるため、見出しと同じ行の高さ・箱の計算方法に固定する
+     （名前が折り返す場合の高さは、JS側がstyle属性のheightで上書きする） */
+  box-sizing: border-box;
+  line-height: 1.3;
+  height: calc(1.2rem * 1.3);
 }
 /* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
    アクセントカラーの枠線に差し替える（borderが無い欄のため、box-shadowで枠を表現する） */
@@ -322,7 +329,11 @@ h1 { font-size: 1.1rem; }
   background: none;
   padding: 0;
   cursor: pointer;
+  /* フェーズ43：ボタン内の画像が文字行の下端（ディセンダー）の分だけ下に余白を作らないようにする */
+  display: block;
+  line-height: 0;
 }
+.hero-image-picker-btn .hero-artwork { display: block; }
 
 /* --- フェーズ23：検索結果の＋トグルボタン・編集モードのマイナスボタン。
    小さめの丸ボタンとし、行の右端に配置する（フェーズ28／CR-048で行の意匠がカードから
@@ -712,9 +723,10 @@ h1 { font-size: 1.1rem; }
   width: max-content;
   white-space: nowrap;
 }
-.marquee-track .marquee-text { padding-right: 32px; flex-shrink: 0; }
+.marquee-track .marquee-text { padding-right: var(--marquee-gap, 0px); flex-shrink: 0; }
 .marquee.scrolling .marquee-track {
-  animation: marquee-scroll var(--marquee-duration, 8s) linear infinite;
+  /* フェーズ43：初期表示から1秒後に開始する（繰り返しの2周目以降は待たない） */
+  animation: marquee-scroll var(--marquee-duration, 8s) linear 1s infinite;
 }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }

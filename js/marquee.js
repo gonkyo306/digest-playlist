@@ -7,6 +7,9 @@
 // 追加した。同じ要素に対して1フレーム内に複数回呼ばれても、複製が重なって増えないようにした
 // （複製が3つ以上になるとループの繰り返し位置がずれる）。流れる速さは、長いタイトルほど
 // 速くなりすぎないよう、テキストの長さに応じて決める。
+// フェーズ43：スクロールは初期表示から1秒後に開始する（CSSのanimation-delay）。また、末尾まで全て
+// 流し終わる前に先頭の文字が右端から再び現れないよう、複製との間隔（.marquee-textの右余白）を
+// 表示領域の幅と同じにする（収まるかの判定も、右余白を含まないテキスト自体の幅で行う）。
 
 const SCROLL_PX_PER_SECOND = 40;
 const MIN_LOOP_SECONDS = 8;
@@ -44,11 +47,15 @@ export function setupMarquee(el) {
     pendingFrames.delete(el);
     if (!track.isConnected) return; // 判定前に再描画・画面遷移していれば何もしない
     while (track.children.length > 1) track.removeChild(track.lastChild);
-    if (el.scrollWidth > el.clientWidth + 1) {
+    el.style.removeProperty('--marquee-gap');
+    const viewWidth = el.clientWidth;
+    const textWidth = original.offsetWidth; // 右余白を除いた、テキスト自体の幅
+    if (textWidth > viewWidth + 1) {
       const clone = original.cloneNode(true);
       clone.setAttribute('aria-hidden', 'true');
       track.appendChild(clone);
-      const loopSeconds = Math.max(MIN_LOOP_SECONDS, original.offsetWidth / SCROLL_PX_PER_SECOND);
+      el.style.setProperty('--marquee-gap', `${viewWidth}px`);
+      const loopSeconds = Math.max(MIN_LOOP_SECONDS, (textWidth + viewWidth) / SCROLL_PX_PER_SECOND);
       el.style.setProperty('--marquee-duration', `${loopSeconds.toFixed(1)}s`);
       el.classList.add('scrolling');
     }
