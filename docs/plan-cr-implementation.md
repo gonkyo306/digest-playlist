@@ -1015,6 +1015,26 @@ Unitテスト132件成功（変更なし。いずれもDOM/CSS/Service Worker設
 
 ---
 
+### フェーズ41（CR-072再修正6・CR-078〜086）
+
+フェーズ40の実装後、利用者から7件の変更要求（追加先ポップアップの＋ボタンを白に／プレイリストタブアイコンの連なりをもっと分かりやすく／ステータスバーの曲情報アイコンを白い2連符に／シャッフルアイコンの形状変更／プレイリスト詳細のシャッフル・再生ボタンの常時表示と曲数の削除／作成画面を下から表示／編集画面の削除ボタンを小さく右へ）と3件の不具合報告（停止中なのにミニプレイヤーが再生表示中になる／曲の切り替え時にミニプレイヤーからずれた位置にジャケット等が写り込む／起動時に一瞬画面下に青いラインが写り込む）を受けた。7件はDesign Canvasでモックを提示し、「ok」の回答を得て実装した（これまでのモックのボードはすべて削除し、今回分の5枚に差し替えた）。不具合3件はPlaywrightで調査・再現した上で修正した。
+
+- **CR-078**：`css/style.css`の`.picker-create-btn`を`var(--fg)`（ダーク＝白）に変更。
+- **CR-072（再修正6）**：`icons.js`の`playlistTab`を、影のずらし幅を約2倍に広げ（手前の枠は17×17に縮小、2連符は約0.895倍）、各層に`--card`色の細い区切り線（`stroke`）を入れた構成に変更。
+- **CR-079**：白い2連符・背景透過の`icons/icon-monochrome-192.png`・`icon-monochrome-512.png`をPlaywrightで生成し、`manifest.json`に`purpose: "monochrome"`として登録。
+- **CR-080**：`icons.js`の`shuffle`を、丸みのある2本の線が交差して右向きの矢じりへ伸びる形に差し替え。
+- **CR-081**：`playlist-detail-view.js`の`isCurrentlyPlaying`／`showPlayButton`を廃止して`.hero-actions`を常に描画（0曲は無効）、曲数の注記を削除。`app.js`の`renderDetailScreen`から`unavailableIds`・再生開始時の再描画を廃止。
+- **CR-082**：`playlist-create-view.js`を`openPlaylistCreateSheet()`に変更し、`dialog.js`の`buildOverlay`／`closeOverlay`／`enqueueDialog`を共用して、画面下からスライドするシート（`.dialog-box.create-sheet`）にした。`app.js`・`search-view.js`の呼び出しを更新し、`playlistView`の`create`状態を廃止。
+- **CR-083**：`.track-item .track-remove-btn`を20px化、編集モード中も`.hero-actions.is-disabled`でボタンの場所を残し、`.hero-name-input`の上下余白を0にして通常時の見出しと同じ高さにした。
+- **CR-084（不具合）**：`PlaylistPlayer`にaudio要素の`pause`／`play`／`error`イベントとAudioContextの`statechange`による状態同期、`togglePlayPause`での`ctx.resume()`と再開失敗時の巻き戻し、失敗処理の共通化（`_handlePlayFailure`）を追加。`PreviewPlayer`はエラー・端末側のpause・`play()`の失敗で試聴を止める。`app.js`で`mediaSession.playbackState`も同期した。
+- **CR-085（不具合）**：Playwrightで、曲を切り替えた瞬間に`#mini-player`が`display:none`→`flex`と切り替わり、画面下部が上下に動くことを再現した。`PlaylistPlayer`に`loading`（再生開始待ち）を追加して待ち中も新しい曲を返し、`startPlaylistPlayback`の直後にミニプレイヤーへ反映、`mini-player-view.js`をDOMの1回生成＋差分更新に書き換えた。
+- **CR-086（不具合）**：起動直後のフレームをPlaywright（CPU速度1/6）で録画・解析したが青いラインは再現できず、原因は特定できなかった。起動直後の最初の2フレームが白いこと、タブバーが遅れて現れることは確認できたため、`index.html`の`html`背景色の先行指定、`#tab-bar:empty`による領域の先行確保、`.tab-btn`のタップハイライト無効化を行った。
+- `sw.js`の`CACHE_NAME`を`v12`→`v13`に更新（フェーズ40のルールに従い、シェルファイルを変更したため）。
+
+Unitテスト144件成功（再生状態の同期・再生開始待ち・試聴の中断に関する12件を追加）。Playwrightスモークテストで、(1)詳細画面でシャッフル・再生ボタンが再生中も表示され、曲数の表示が無いこと、(2)編集モードで一覧の開始位置が通常画面と同じ（362px）・各行の高さが同じ（73〜74px）・マイナスボタンが20pxで右端にあること、(3)作成シートが下からスライドして現れ、保存・キャンセルで閉じて一覧が更新されること、(4)追加先ポップアップの＋ボタンの色が白（rgb(240,240,242)）であること、(5)タブアイコンの連なりがライト・ダーク両テーマの選択中／非選択で見えること、(6)曲の切り替え中も`#mini-player`が表示されたままで位置が変わらないこと、(7)コンソールエラーが無いことを確認した。
+
+---
+
 ## 全体の進捗まとめ（2026-09-30時点）
 
 | ドキュメント／フェーズ | 状態 |
@@ -1045,4 +1065,5 @@ Unitテスト132件成功（変更なし。いずれもDOM/CSS/Service Worker設
 | `plan-cr-implementation.md` フェーズ38（CR-060・072・073の再修正2、CR-074の新規実装） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ39（CR-072・073の再修正3/4、CR-060の再修正3、CR-061の復活、CR-075の新規実装、潜在バグ3件修正） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ40（CR-072の再修正5、CR-076・CR-077の新規実装） | **完了**（コード実装済み。Unitテスト132件成功、Playwrightスモークテスト成功。フェーズ20の正式な受入テストは未実施） |
+| `plan-cr-implementation.md` フェーズ41（CR-072の再修正6、CR-078〜086） | **完了**（コード実装済み。Unitテスト144件成功、Playwrightスモークテスト成功。CR-086は原因を特定できず対策のみ。フェーズ20の正式な受入テストは未実施） |
 | `plan-cr-implementation.md` フェーズ20（全CR分の受入テスト） | **未着手**（ユーザー指示により、全実装完了後の現時点でも着手せず） |

@@ -341,3 +341,104 @@ test('shuffle省略時（既定）は、これまで通りランダムな初期�
   // 20曲であれば、常に[0,1,2,...]の並びになることはまず無い
   assert.notDeepEqual(player.order, Array.from({ length: 20 }, (_, i) => i));
 });
+
+// --- フェーズ41：端末側の都合による停止・再生開始待ちの扱い ---
+
+test('端末側でaudio要素が一時停止されると、再生状態も一時停止に反映される (フェーズ41)', async () => {
+  const states = [];
+  const { player, createdAudios } = createPlayer(makeTracks(3), { onPlayStateChange: (p) => states.push(p) });
+  await player.start();
+  assert.equal(player.playing, true);
+  // 他アプリの音声・通話・イヤホンの切断等で、アプリの操作とは無関係にaudio要素が止まる
+  createdAudios[0].paused = true;
+  createdAudios[0].dispatchEvent(new Event('pause'));
+  assert.equal(player.playing, false);
+  assert.equal(states.at(-1), false);
+});
+
+test('アプリ自身の一時停止操作では、pauseイベントが来ても状態通知が二重にならない (フェーズ41)', async () => {
+  const states = [];
+  const { player, createdAudios } = createPlayer(makeTracks(3), { onPlayStateChange: (p) => states.push(p) });
+  await player.start();
+  const before = states.length;
+  player.togglePlayPause(); // 一時停止（通知1回）
+  createdAudios[0].dispatchEvent(new Event('pause'));
+  assert.equal(states.length, before + 1);
+});
+
+test('曲が自然に終わったときのpauseイベントでは、一時停止扱いにならない (フェーズ41)', async () => {
+  const { player, createdAudios } = createPlayer(makeTracks(3));
+  await player.start();
+  createdAudios[0].ended = true;
+  createdAudios[0].dispatchEvent(new Event('pause'));
+  assert.equal(player.playing, true);
+});
+
+test('端末側でaudio要素が再開されると、再生状態も再生中に戻る (フェーズ41)', async () => {
+  const { player, createdAudios } = createPlayer(makeTracks(3));
+  await player.start();
+  player.togglePlayPause(); // 一時停止
+  assert.equal(player.playing, false);
+  createdAudios[0].dispatchEvent(new Event('play')); // イヤホンの再生ボタン等で再開
+  assert.equal(player.playing, true);
+});
+
+test('再生中の音声エラーでは、その曲を失敗として次の曲へ進む (フェーズ41)', async () => {
+  const tracks = makeTracks(3);
+  const { player, createdAudios } = createPlayer(tracks, { shuffle: false });
+  await player.start();
+  const firstId = player.currentTrack().id;
+  createdAudios[0].dispatchEvent(new Event('error'));
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.notEqual(player.currentTrack().id, firstId);
+  assert.equal(player.playing, true);
+});
+
+test('AudioContextが中断されると、一時停止として扱う (フェーズ41)', async () => {
+  const ctxs = [];
+  const { player } = createPlayer(makeTracks(3), {
+    crossfadeSeconds: 2,
+    createAudioContext: () => {
+      const c = new FakeAudioContext();
+      c.state = 'running';
+      ctxs.push(c);
+      return c;
+    },
+  });
+  await player.start();
+  assert.equal(player.playing, true);
+  ctxs[0].state = 'suspended';
+  ctxs[0].onstatechange();
+  assert.equal(player.playing, false);
+});
+
+test('再生の開始待ち中も、currentTrack()はその曲を返し、loadingはtrueになる (フェーズ41)', async () => {
+  const tracks = makeTracks(3);
+  let release;
+  const { player } = createPlayer(tracks, {
+    createAudio: () => {
+      const a = new FakeAudio();
+      a.play = () => new Promise((resolve) => { release = () => { a.paused = false; resolve(); }; });
+      return a;
+    },
+  });
+  const started = player.start();
+  assert.equal(player.loading, true);
+  assert.ok(player.currentTrack(), '待ち中でも現在の曲が分かる');
+  release();
+  await started;
+  assert.equal(player.loading, false);
+  assert.equal(player.playing, true);
+});
+
+test('togglePlayPause: 再開に失敗したら一時停止の表示に戻る (フェーズ41)', async () => {
+  const { player, createdAudios } = createPlayer(makeTracks(3));
+  await player.start();
+  player.togglePlayPause(); // 一時停止
+  createdAudios[0].play = () => Promise.reject(new Error('blocked'));
+  player.togglePlayPause(); // 再開を試みるが失敗する
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(player.playing, false);
+});

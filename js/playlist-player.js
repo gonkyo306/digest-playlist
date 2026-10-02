@@ -16,6 +16,9 @@
 //   FR-4.11（再生中の曲情報を表示に反映）→ onTrackChange コールバック
 //   FR-4.12（ロック画面/通知からの操作）→ Media Session APIのセットアップ
 //   FR-2.15, FR-2.16（プレイリスト詳細のシャッフルON/OFF切り替え。CR-038）→ options.shuffle
+//   フェーズ41：(1) 再生の開始待ち（audio.play()の完了前）の曲もcurrentTrack()が返し、曲を切り替えても
+//   ミニプレイヤーが一瞬消えないようにした。(2) 端末側の都合（他アプリの音声・通話・イヤホン切断等）で
+//   audio要素が止まった／音声のエラーが起きた／AudioContextが中断された場合も、再生状態の表示に反映する。
 
 import {
   buildInitialOrder, buildOrderStartingAt,
@@ -67,6 +70,7 @@ export class PlaylistPlayer {
     this._crossfadeTriggered = false;
     this._pausedByOffline = false;
     this._pausedByPreview = false;
+    this._loadingIndex = null; // audio.play()の完了待ちの曲（tracks配列でのインデックス）。待っていなければnull
 
     if (this.tracks.length > 0) {
       this._setupAudio();
@@ -91,7 +95,14 @@ export class PlaylistPlayer {
     return this._pausedByOffline;
   }
 
+  /** 曲の再生開始待ち（audio.play()の完了前）かどうか。待ち中も画面にはその曲を再生中として表示する */
+  get loading() {
+    return this._loadingIndex !== null;
+  }
+
   currentTrack() {
+    // 再生開始待ちの曲があれば、それを現在の曲として返す（切り替えのたびに表示が空になるのを防ぐ）
+    if (this._loadingIndex !== null) return this.tracks[this._loadingIndex];
     const idx = this.history.current();
     return idx === null ? null : this.tracks[idx];
   }
@@ -116,10 +127,61 @@ export class PlaylistPlayer {
       this.standbyGain = this.gainB;
     }
 
+    if (this.ctx) {
+      // 他アプリの音声・画面ロック等でAudioContextが中断されると、audio要素は「再生中」のまま無音になる。
+      // その場合は一時停止として扱い、再生ボタンでAudioContextごと再開できるようにする
+      this.ctx.onstatechange = () => {
+        if (this.ctx.state !== 'running') this._syncPaused(this.active);
+      };
+    }
+
     [this.audioA, this.audioB].forEach((a) => {
       a.addEventListener('timeupdate', () => this._onTimeUpdate(a));
       a.addEventListener('ended', () => this._onEnded(a));
+      a.addEventListener('pause', () => this._syncPaused(a));
+      a.addEventListener('play', () => this._syncPlaying(a));
+      a.addEventListener('error', () => this._onAudioError(a));
     });
+  }
+
+  /** 端末側でaudio要素が止まった場合（アプリ側の操作によるものは既にplaying=falseのため何もしない） */
+  _syncPaused(audioEl) {
+    if (audioEl !== this.active || audioEl.ended || this._loadingIndex !== null) return;
+    if (!this.playing) return;
+    this.playing = false;
+    this._onPlayStateChange(false);
+  }
+
+  /** 端末側（イヤホンのボタン・OSの再生操作等）でaudio要素が再開された場合 */
+  _syncPlaying(audioEl) {
+    if (audioEl !== this.active || this._loadingIndex !== null) return;
+    if (this.playing || this.finished || this.stopped) return;
+    this.playing = true;
+    this._pausedByOffline = false;
+    this._pausedByPreview = false;
+    this._onPlayStateChange(true);
+  }
+
+  /** 再生が始まったあとに音声のエラー（通信切れ等）が起きた場合は、その曲を失敗として次の曲へ進む */
+  _onAudioError(audioEl) {
+    if (audioEl !== this.active || this._loadingIndex !== null || !this.playing) return;
+    this._handlePlayFailure();
+  }
+
+  /** 曲の再生失敗の共通処理（FR-4.15）。連続失敗が上限に達したら停止し、そうでなければ次の曲へ進む */
+  _handlePlayFailure() {
+    const exhausted = this._failureTracker.recordFailure();
+    if (exhausted) {
+      this.stopped = true;
+      this.playing = false;
+      this._loadingIndex = null;
+      this._onPlayStateChange(false);
+      this._onFailureStop();
+      return;
+    }
+    // この曲だけスキップして次へ（FR-3.3相当。fetchTrackInfoByIdsで既に除外された曲以外の、
+    // 再生時点でのエラーに対する保険）
+    this._advanceForward();
   }
 
   /**
@@ -145,6 +207,7 @@ export class PlaylistPlayer {
     const audioEl = this.active;
     const gainNode = this.useCrossfade ? this.activeGain : null;
 
+    this._loadingIndex = trackIndex;
     audioEl.src = track.previewUrl;
     if (gainNode) gainNode.gain.value = isFirst ? 1 : 0;
     this._crossfadeTriggered = false;
@@ -161,20 +224,12 @@ export class PlaylistPlayer {
       }
       this._failureTracker.recordSuccess();
     } catch (err) {
-      const exhausted = this._failureTracker.recordFailure();
-      if (exhausted) {
-        this.stopped = true;
-        this.playing = false;
-        this._onPlayStateChange(false);
-        this._onFailureStop();
-        return;
-      }
-      // この曲だけスキップして次へ（FR-3.3相当。fetchTrackInfoByIdsで既に除外された曲以外の、
-      // 再生時点でのエラーに対する保険）
-      this._advanceForward();
+      // 待ち中に別の曲へ切り替わっていた場合は、この曲の失敗として扱わない
+      if (this._loadingIndex === trackIndex) this._handlePlayFailure();
       return;
     }
 
+    if (this._loadingIndex === trackIndex) this._loadingIndex = null;
     if (!fromHistory) {
       this.history.push(trackIndex);
     }
@@ -249,6 +304,7 @@ export class PlaylistPlayer {
     if (this.standby) this.standby.pause();
     this.playing = false;
     this.finished = true;
+    this._loadingIndex = null;
     this._onPlayStateChange(false);
     this._onPlaybackComplete();
   }
@@ -263,10 +319,16 @@ export class PlaylistPlayer {
   togglePlayPause() {
     if (this.isEmpty || this.stopped || this.finished || !this.active) return;
     if (this.active.paused) {
-      this.active.play();
+      // 表示は即座に再生中へ切り替え、AudioContextの再開・再生の開始に失敗した場合は一時停止に戻す
       this.playing = true;
       this._pausedByOffline = false;
       this._pausedByPreview = false;
+      if (this.useCrossfade) Promise.resolve(this.ctx.resume()).catch(() => {});
+      Promise.resolve(this.active.play()).catch(() => {
+        if (!this.playing) return;
+        this.playing = false;
+        this._onPlayStateChange(false);
+      });
     } else {
       this.active.pause();
       this.playing = false;

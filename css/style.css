@@ -277,6 +277,8 @@ h1 { font-size: 1.1rem; }
   font-size: 0.95rem;
   min-height: 44px;
 }
+/* フェーズ41：0曲などで再生できない場合は、再生ボタンも薄く表示して操作を無効にする */
+.pill-play-btn:disabled { opacity: 0.5; }
 /* CR-034：シャッフルボタンは完全な円形にする */
 /* フェーズ29（CR-050、NFR-5.7の例外）：CR-049のアイコンボタン全体からのカード背景除去で
    シャッフルボタンも巻き込まれてしまっていたため、このボタンだけカード背景を復元する */
@@ -297,7 +299,9 @@ h1 { font-size: 1.1rem; }
   background: transparent;
   border: none;
   border-radius: 8px;
-  padding: 8px 12px;
+  /* フェーズ41：通常時の見出し（h1。余白なし）と同じ高さにして、編集に入っても曲一覧の位置が
+     上下にずれないようにする（左右の余白だけ付ける） */
+  padding: 0 12px;
   color: var(--fg);
 }
 /* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
@@ -342,6 +346,13 @@ h1 { font-size: 1.1rem; }
   background: #ff3b30;
   color: #fff;
 }
+/* フェーズ41：編集モードのマイナスボタンを小さくして右端に置く（28px→20px）。行の高さは
+   ジャケット（44px）で決まるため、通常画面の曲の行と同じ高さのままになる */
+.track-item .track-remove-btn { width: 20px; height: 20px; padding: 0; }
+.track-item .track-remove-btn svg { width: 12px; height: 12px; }
+/* フェーズ41：編集モード中も、シャッフル・再生ボタンの場所を残して曲一覧の位置が上下にずれないようにする
+   （薄く表示して操作できない状態にする） */
+.hero-actions.is-disabled { opacity: 0.35; pointer-events: none; }
 
 /* --- フェーズ5：確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） ---
    CR-069：画面中央へのフェード表示ではなく、画面下端からスライドして現れる／消える
@@ -392,7 +403,8 @@ h1 { font-size: 1.1rem; }
   margin: 0 0 8px;
 }
 .dialog-title-row .dialog-title { margin: 0; }
-.picker-create-btn { color: var(--accent); flex-shrink: 0; }
+/* フェーズ41：＋ボタンはアクセントの青ではなく、他のアイコンと同じ文字色（ダーク＝白）にする */
+.picker-create-btn { color: var(--fg); flex-shrink: 0; }
 .dialog-message {
   font-size: 0.9rem;
   color: var(--muted);
@@ -467,6 +479,15 @@ h1 { font-size: 1.1rem; }
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
 }
+/* フェーズ41：起動直後、タブバーの中身がJSで描画されるまでの間も、タブバーの領域（背景・上の線）を
+   最初から確保しておく。後から突然現れて画面下部の見た目が変わる（ちらつく）のを防ぐ */
+#tab-bar:empty {
+  min-height: calc(60px + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+/* フェーズ41：タブをタップしたときのブラウザ既定のハイライト（青っぽい四角）を出さない */
+.tab-bar .tab-btn { -webkit-tap-highlight-color: transparent; }
 /* フェーズ37（CR-072）：アイコンをラベルの上に縦に並べる。アイコン自体はカード等の背景を
    持たず単体で表示する（NFR-5.7のアイコン単体表示の方針に合わせる） */
 .tab-bar .tab-btn {
@@ -486,14 +507,13 @@ h1 { font-size: 1.1rem; }
    width/height属性によらず、表示サイズを固定する（プレイリストタブ・検索タブでラベルまでの
    高さを一致させる） */
 .tab-bar .tab-btn .icon-only svg { width: 24px; height: 24px; }
-/* フェーズ40（再修正4）：プレイリストタブの外枠は、検索タブなど他のアイコンと同じく
+/* フェーズ41（CR-072再修正6）：プレイリストタブの外枠・影は、検索タブなど他のアイコンと同じく
    currentColorに追従させる（非選択＝var(--muted)の薄いグレー／選択中＝var(--accent)の青）。
+   各層の間には、タブバーの背景色（--card）の細い区切り線を入れて、層の境目を分かりやすくする。
    2連符自体は--tab-icon-note-color（ダーク＝黒固定／ライト＝白固定）で塗る */
-.tab-bar .tab-btn .tab-icon-frame { fill: currentColor; }
+.tab-bar .tab-btn .tab-icon-frame { fill: currentColor; stroke: var(--card); stroke-width: 0.9; }
 .tab-bar .tab-btn .tab-icon-notes { fill: var(--tab-icon-note-color); }
-/* 枠の右上奥に重ねる2枚の影。複数のプレイリストが後ろに連なっている様子を表す
-   （currentColorに追従させ、非選択／選択中の色切り替えにも合わせて変化させる） */
-.tab-bar .tab-btn .tab-icon-peek1 { fill: currentColor; opacity: 0.75; }
+.tab-bar .tab-btn .tab-icon-peek1 { fill: currentColor; opacity: 0.75; stroke: var(--card); stroke-width: 0.9; }
 .tab-bar .tab-btn .tab-icon-peek2 { fill: currentColor; opacity: 0.5; }
 
 /* --- フェーズ8：常時表示のミニプレイヤー（FR-4.16, FR-4.17） --- */
@@ -694,6 +714,24 @@ h1 { font-size: 1.1rem; }
 }
 
 /* --- フェーズ28（CR-043）：プレイリスト作成画面（FR-2.17） --- */
+/* フェーズ41：プレイリスト作成画面は、画面下からスライドして現れるシート（.dialog-box共通の
+   スライドアニメーション）として、ほぼ全画面の高さで表示する */
+.dialog-box.create-sheet {
+  height: calc(100% - 36px);
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.create-sheet-grab {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 4px;
+}
 .create-screen-topbar {
   display: flex;
   align-items: center;

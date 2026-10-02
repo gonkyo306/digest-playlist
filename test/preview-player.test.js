@@ -86,3 +86,46 @@ test('別の曲に切り替わった後で、古い曲のendedイベントが来
   assert.equal(player.isPlaying, true);
   assert.equal(player.currentTrackId, 't2');
 });
+
+// --- フェーズ41：試聴が失敗・中断された場合に、試聴中の表示を残さない ---
+
+test('音声の読み込みエラーで、試聴中状態が解除される (フェーズ41)', () => {
+  const stopped = [];
+  const { player, created } = createPlayer((id) => stopped.push(id));
+  player.play({ id: 't1', previewUrl: 'a.m4a' });
+  created[0].dispatchEvent(new Event('error'));
+  assert.equal(player.isPlaying, false);
+  assert.deepEqual(stopped, ['t1']);
+});
+
+test('端末側の都合でpauseされた場合も、試聴中状態が解除される (フェーズ41)', () => {
+  const { player, created } = createPlayer();
+  player.play({ id: 't1', previewUrl: 'a.m4a' });
+  created[0].dispatchEvent(new Event('pause'));
+  assert.equal(player.isPlaying, false);
+});
+
+test('再生開始(play())に失敗した場合も、試聴中状態が解除される (フェーズ41)', async () => {
+  const created = [];
+  const player = new PreviewPlayer({
+    createAudio: () => {
+      const a = new FakeAudio();
+      a.play = () => Promise.reject(new Error('NotAllowedError'));
+      created.push(a);
+      return a;
+    },
+  });
+  player.play({ id: 't1', previewUrl: 'a.m4a' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(player.isPlaying, false);
+});
+
+test('別の曲へ切り替えたときの古い曲のpauseでは、新しい試聴は止まらない (フェーズ41)', () => {
+  const { player, created } = createPlayer();
+  player.play({ id: 't1', previewUrl: 'a.m4a' });
+  player.play({ id: 't2', previewUrl: 'b.m4a' }); // 内部で古い曲をpauseする
+  created[0].dispatchEvent(new Event('pause'));
+  assert.equal(player.currentTrackId, 't2');
+  assert.equal(player.isPlaying, true);
+});

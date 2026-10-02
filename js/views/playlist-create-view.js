@@ -1,80 +1,94 @@
 // フェーズ28（CR-043）：プレイリスト作成画面（FR-2.17）。
-// 一覧画面右上の＋ボタンから遷移する専用画面。画像（任意、リサイズ・圧縮してから保持。NFR-3.6）と
-// プレイリスト名（必須、50文字まで）を設定する。左上に×アイコンのみのキャンセルボタン、
-// 右上にチェックアイコンのみの保存ボタン（名前が空の間は無効）を配置する。
-// 検索タブの追加先0件時のガイド（FR-1.19）からも、同じ関数がsearch-view.js側のコンテナへ
-// 直接マウントされる形で再利用される。
+// 画像（任意、リサイズ・圧縮してから保持。NFR-3.6）とプレイリスト名（必須、50文字まで）を設定する。
+// 左上に×アイコンのみのキャンセルボタン、右上にチェックアイコンのみの保存ボタン
+// （名前が空の間は無効）を配置する。
+// フェーズ41：画面全体を入れ替える表示をやめ、他のポップアップ（追加先の選択など）と同じく、
+// 画面下からスライドして現れるシートとして表示する（dialog.jsのbuildOverlay/closeOverlayを共用）。
+// 一覧画面・検索画面（追加先選択モーダルの＋ボタンから開く場合）は、シートの下にそのまま残る。
 
 import { iconOnly } from './icons.js';
+import { buildOverlay, closeOverlay, enqueueDialog } from './dialog.js';
 import { resizeImageToJpeg } from '../image-resize.js';
 import { pushBackState, popBackState } from '../back-stack.js';
 
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 /**
- * @param {HTMLElement} container
- * @param {{}} data 予約（現状未使用）
+ * プレイリスト作成シートを開く。保存・キャンセルのあとシートが閉じる（アニメーション終了）まで待つ。
  * @param {{onCancel: Function, onSave: (name: string, imageBlob: Blob|null) => (void|Promise<void>)}} actions
+ *   onSaveの処理（保存・一覧の更新等）が終わってからシートを閉じる
+ * @returns {Promise<void>} シートが閉じたら解決する
  */
-export function renderPlaylistCreate(container, data, actions) {
-  let imageBlob = null;
-  let imageObjectUrl = null;
-  let name = '';
-  let saving = false;
+export function openPlaylistCreateSheet(actions) {
+  return enqueueDialog(() => new Promise((resolve) => {
+    let imageBlob = null;
+    let imageObjectUrl = null;
+    let name = '';
+    let saving = false;
+    let closing = false;
 
-  // CR-053（FR-6.3）：OSの戻る操作でもキャンセルと同じ扱いで画面を戻れるようにする
-  function doCancel() {
-    if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
-    actions.onCancel();
-  }
-
-  function render() {
-    const canSave = !!name.trim() && !saving;
-    container.innerHTML = `
+    const overlay = buildOverlay(`
+      <div class="create-sheet-grab" aria-hidden="true"></div>
       <div class="create-screen-topbar">
         <button type="button" id="create-cancel-btn" class="icon-btn" aria-label="キャンセル">${iconOnly('close')}</button>
-        <button type="button" id="create-save-btn" class="icon-btn confirm-icon-btn" aria-label="保存" ${canSave ? '' : 'disabled'}>${iconOnly('check')}</button>
+        <button type="button" id="create-save-btn" class="icon-btn confirm-icon-btn" aria-label="保存" disabled>${iconOnly('check')}</button>
       </div>
-      <button type="button" id="image-picker-btn" class="image-picker" aria-label="画像を選ぶ">
-        ${imageObjectUrl ? `<img src="${imageObjectUrl}" alt="">` : iconOnly('camera')}
-      </button>
+      <button type="button" id="image-picker-btn" class="image-picker" aria-label="画像を選ぶ">${iconOnly('camera')}</button>
       <input type="file" id="image-file-input" accept="image/*" hidden>
-      <input type="text" id="create-name-input" class="create-name-input" placeholder="プレイリスト名" maxlength="50" value="${escapeHtml(name)}">
-    `;
+      <input type="text" id="create-name-input" class="create-name-input" placeholder="プレイリスト名" maxlength="50" aria-label="プレイリスト名">
+    `);
+    overlay.querySelector('.dialog-box').classList.add('create-sheet');
+    const saveBtn = overlay.querySelector('#create-save-btn');
+    const pickerBtn = overlay.querySelector('#image-picker-btn');
 
-    container.querySelector('#create-cancel-btn').addEventListener('click', () => {
+    function releaseImage() {
+      if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
+      imageObjectUrl = null;
+    }
+
+    // シートを閉じる（下へスライドして消えるアニメーションを待つ）
+    async function close() {
+      if (closing) return;
+      closing = true;
+      await closeOverlay(overlay);
+      releaseImage();
+      resolve();
+    }
+
+    // CR-053（FR-6.3）：OSの戻る操作でもキャンセルと同じ扱いで閉じられるようにする
+    function cancel() {
+      actions.onCancel();
+      close();
+    }
+    pushBackState(cancel);
+
+    overlay.querySelector('#create-cancel-btn').addEventListener('click', () => {
       popBackState();
-      doCancel();
+      cancel();
     });
-    container.querySelector('#create-save-btn').addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
       if (!name.trim() || saving) return;
       popBackState();
       saving = true;
-      render();
-      Promise.resolve(actions.onSave(name.trim(), imageBlob)).finally(() => {
-        if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
-      });
+      saveBtn.disabled = true;
+      try {
+        await actions.onSave(name.trim(), imageBlob);
+      } finally {
+        close();
+      }
     });
-    container.querySelector('#image-picker-btn').addEventListener('click', () => {
-      container.querySelector('#image-file-input').click();
+    pickerBtn.addEventListener('click', () => {
+      overlay.querySelector('#image-file-input').click();
     });
-    container.querySelector('#image-file-input').addEventListener('change', async (e) => {
+    overlay.querySelector('#image-file-input').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       imageBlob = await resizeImageToJpeg(file);
-      if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
+      releaseImage();
       imageObjectUrl = URL.createObjectURL(imageBlob);
-      render();
+      pickerBtn.innerHTML = `<img src="${imageObjectUrl}" alt="">`;
     });
-    container.querySelector('#create-name-input').addEventListener('input', (e) => {
+    overlay.querySelector('#create-name-input').addEventListener('input', (e) => {
       name = e.target.value;
-      container.querySelector('#create-save-btn').disabled = !name.trim();
+      saveBtn.disabled = !name.trim() || saving;
     });
-  }
-
-  render();
-  // CR-053（FR-6.3）：この画面を開いたことを1段階の遷移として履歴に積む
-  pushBackState(doCancel);
+  }));
 }

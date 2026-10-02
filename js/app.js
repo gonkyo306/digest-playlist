@@ -25,7 +25,7 @@ import { PreviewPlayer } from './preview-player.js';
 import { PlaylistPlayer } from './playlist-player.js';
 import { renderPlaylistList } from './views/playlist-list-view.js';
 import { renderPlaylistDetail } from './views/playlist-detail-view.js';
-import { renderPlaylistCreate } from './views/playlist-create-view.js';
+import { openPlaylistCreateSheet } from './views/playlist-create-view.js';
 import { renderSearchView } from './views/search-view.js';
 import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
@@ -72,7 +72,8 @@ const previewPlayer = {
 
 // --- 画面全体のタブ状態（FR-6.1） ---
 let activeTab = 'playlist'; // 'playlist' | 'search'
-// { screen: 'list' } | { screen: 'detail', playlistId } | { screen: 'create' }（CR-043）
+// { screen: 'list' } | { screen: 'detail', playlistId }（プレイリスト作成は下から現れるシート表示で、
+// 一覧画面の上に重ねるため、ここでは別画面として扱わない。フェーズ41）
 let playlistView = { screen: 'list' };
 
 // --- 再生の永続化（FR-4.16）：画面遷移では破棄しない。新しい再生を始めるときだけ入れ替える ---
@@ -120,6 +121,10 @@ window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnl
  */
 function reflectPlaybackState() {
   renderMiniPlayerBar();
+  // フェーズ41：ロック画面・通知の再生/一時停止の表示も、画面（ミニプレイヤー）と同じ状態にそろえる
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = !currentPlayer ? 'none' : (currentPlayer.playing ? 'playing' : 'paused');
+  }
 }
 
 /** ミニプレイヤーの表示を更新する（試聴中はCR-020/023、本編再生中はCR-016） */
@@ -140,7 +145,8 @@ function renderMiniPlayerBar() {
     miniPlayerEl,
     {
       track: currentPlayer.currentTrack(),
-      playing: currentPlayer.playing,
+      // 曲の読み込み待ち（再生が始まる直前）も再生中として表示し、切り替えのたびにアイコンが揺れないようにする
+      playing: currentPlayer.playing || currentPlayer.loading,
       finished: currentPlayer.finished,
     },
     {
@@ -215,17 +221,18 @@ async function showPlaylistList() {
   renderMiniPlayerBar();
 }
 
-/** プレイリスト作成画面（CR-043、FR-2.17） */
+/**
+ * プレイリスト作成画面（CR-043、FR-2.17）。フェーズ41：一覧画面の上に、画面下からスライドして
+ * 現れるシートとして表示する（他のポップアップと同じ動き）。一覧画面自体は入れ替えない。
+ */
 function showPlaylistCreate() {
-  playlistView = { screen: 'create' };
-  renderPlaylistCreate(playlistPaneEl, {}, {
-    onCancel: () => showPlaylistList(),
+  openPlaylistCreateSheet({
+    onCancel: () => {},
     onSave: async (name, imageBlob) => {
       await savePlaylist(createPlaylist(name, imageBlob));
       showPlaylistList();
     },
   });
-  renderMiniPlayerBar();
 }
 
 async function showPlaylistDetail(playlistId) {
@@ -237,30 +244,23 @@ async function showPlaylistDetail(playlistId) {
   }
 
   let available = [];
-  let unavailableIds = [];
   let fetchError = null;
   if (playlist.trackIds.length) {
     try {
-      ({ available, unavailableIds } = await fetchTrackInfoByIds(playlist.trackIds));
+      ({ available } = await fetchTrackInfoByIds(playlist.trackIds));
     } catch (err) {
       fetchError = err.message || String(err);
     }
   }
 
-  renderDetailScreen(playlist, available, unavailableIds, fetchError);
+  renderDetailScreen(playlist, available, fetchError);
 }
 
-/**
- * プレイリスト詳細画面を描画する。曲情報の取得（ネットワーク通信）は伴わないため、
- * 再生開始直後など「取得済みのデータのまま、再生状態の表示だけを更新したい」場面でも使う。
- */
-function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
+/** プレイリスト詳細画面を描画する（フェーズ41：再生中も画面の内容は変わらないため、再生開始時の再描画はしない） */
+function renderDetailScreen(playlist, available, fetchError) {
   const playlistId = playlist.id;
-  const isCurrentlyPlaying = playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId;
 
-  renderPlaylistDetail(playlistPaneEl, {
-    playlist, tracks: available, unavailableIds, fetchError, isCurrentlyPlaying,
-  }, {
+  renderPlaylistDetail(playlistPaneEl, { playlist, tracks: available, fetchError }, {
     onBack: () => {
       popBackState();
       goToPlaylistList();
@@ -269,9 +269,6 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       // シャッフルOFF時は曲一覧の表示順（アーティスト名順）で再生する（CR-038、FR-2.16）
       const ordered = sortTracksByArtist(available);
       startPlaylistPlayback(playlistId, ordered, undefined, shuffleOn);
-      // 再生ボタンを非表示にし、ミニプレイヤーに操作を委ねるため、詳細画面を再描画する（CR-016）。
-      // 曲情報は取得済みのため、再取得はしない。
-      renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
     onTrackTap: (trackId, shuffleOn) => {
       // タップした曲を1曲目にして再生を始める（CR-032、FR-2.13）。シャッフルOFF時は表示順のまま
@@ -279,7 +276,6 @@ function renderDetailScreen(playlist, available, unavailableIds, fetchError) {
       const ordered = sortTracksByArtist(available);
       const startIndex = ordered.findIndex((t) => t.id === trackId);
       startPlaylistPlayback(playlistId, ordered, startIndex === -1 ? undefined : startIndex, shuffleOn);
-      renderDetailScreen(playlist, available, unavailableIds, fetchError);
     },
     onSaveEdit: async (newName, remainingTrackIds, newImageBlob) => {
       const removedIds = playlist.trackIds.filter((id) => !remainingTrackIds.includes(id));
@@ -320,6 +316,9 @@ function startPlaylistPlayback(playlistId, tracks, startIndex, shuffleOn = true)
   });
   playbackContext = { type: 'playlist', playlistId };
   currentPlayer.start(startIndex);
+  // フェーズ41：再生の開始待ち（読み込み中）の曲からミニプレイヤーに表示する。曲を切り替えるときに
+  // ミニプレイヤーが一瞬消えて、画面下部のレイアウトが上下に動いてしまうのを防ぐ
+  reflectPlaybackState();
 }
 
 // --- 検索タブ（FR-6.1） ---

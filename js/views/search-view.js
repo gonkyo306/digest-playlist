@@ -31,7 +31,7 @@ import { largeArtworkUrl } from '../artwork-url.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { showAddDestinationPicker, CREATE_NEW } from './playlist-picker-dialog.js';
 import { showCreatePlaylistPrompt } from './dialog.js';
-import { renderPlaylistCreate } from './playlist-create-view.js';
+import { openPlaylistCreateSheet } from './playlist-create-view.js';
 import { setupMarquee } from '../marquee.js';
 import { pushBackState, popBackState } from '../back-stack.js';
 
@@ -152,10 +152,10 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     `;
   }
 
-  /** プレイリスト作成画面（FR-2.17）へ遷移し、作成完了／キャンセルを待つ（CR-061の＋ボタン用） */
+  /** プレイリスト作成画面（FR-2.17。下から現れるシート表示）を開き、作成完了／キャンセルを待つ（CR-061の＋ボタン用） */
   function openFullCreateScreen() {
     return new Promise((resolve) => {
-      renderPlaylistCreate(container, {}, {
+      openPlaylistCreateSheet({
         onCancel: () => resolve(null),
         onSave: async (name, imageBlob) => {
           const created = await actions.onCreatePlaylist(name, imageBlob);

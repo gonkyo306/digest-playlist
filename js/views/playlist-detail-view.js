@@ -26,6 +26,10 @@
 // フェーズ28(CR-049)：編集モードの「キャンセル」「保存」は、プレイリスト作成画面(FR-2.17)と
 //   同じ×／チェックのアイコンのみボタンに統一した(既存の文字ラベル付きボタンはFR-5.3に反していた)。
 //   プレイリスト名の編集欄も、背景・枠線のボックス表示をやめ、見出しと同じプレーンな表示にした。
+// フェーズ41：検索画面のアルバム詳細と同じく、シャッフル・再生ボタンはこのプレイリストの再生中も
+//   常に表示する（再生中だけ消えていた挙動を廃止）。曲数の表示（「N曲」）は詳細画面から削除した。
+//   編集モード中もボタンの場所は残し、薄く表示して操作できない状態にする（曲一覧の位置を
+//   通常画面と同じに保つ）。編集モードの曲削除ボタンは小さくして行の右端に置く（css/style.css）。
 
 import { showConfirm } from './dialog.js';
 import { sortTracksByArtist } from '../playlist-sort.js';
@@ -41,8 +45,7 @@ function escapeHtml(str) {
 
 /**
  * @param {HTMLElement} container
- * @param {{playlist: object, tracks: Array<object>, unavailableIds: Array, fetchError?: string,
- *   isCurrentlyPlaying?: boolean}} data
+ * @param {{playlist: object, tracks: Array<object>, fetchError?: string}} data
  *   tracksは取得済みの順序(playlist.trackIdsの順、取得できなかった曲を除く)のまま渡すこと。
  *   代表画像は、playlist.coverImageがあればそれを、無ければ先頭の曲(tracks[0])のジャケットを使う(FR-2.10)。
  * @param {{onBack, onDelete,
@@ -53,14 +56,10 @@ function escapeHtml(str) {
  *   newImageBlobは、画像を変更しなかった場合はundefined、変更した場合はBlob(削除相当の場合はnull)。
  *   onStartPlayback/onTrackTapには、現在のシャッフルON/OFFの状態を渡す(CR-038)。
  */
-export function renderPlaylistDetail(container, {
-  playlist, tracks: rawTracks, unavailableIds, fetchError, isCurrentlyPlaying = false,
-}, actions) {
+export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, fetchError }, actions) {
   const canPlay = rawTracks.length > 0; // FR-4.14: 0曲は再生操作を無効化
   // 表示順のみアーティスト名順に並び替える(FR-2.11)。再生順(順序はtrackIds/rawTracks側)には影響しない。
   const tracks = sortTracksByArtist(rawTracks);
-  // このプレイリストが今まさに再生中なら、以降の操作はミニプレイヤーに任せ「再生」ボタンは表示しない
-  const showPlayButton = canPlay && !isCurrentlyPlaying;
 
   let editMode = false;
   let editName = playlist.name;
@@ -127,20 +126,15 @@ export function renderPlaylistDetail(container, {
         ${editMode
           ? `<input type="text" id="edit-name-input" class="hero-name-input" value="${escapeHtml(editName)}" aria-label="プレイリスト名">`
           : `<h1 class="hero-name">${escapeHtml(playlist.name)}</h1>`}
-        ${!editMode && showPlayButton ? `
-          <div class="hero-actions">
-            <button id="shuffle-btn" class="icon-btn shuffle-btn${shuffleOn ? ' active' : ''}" aria-label="シャッフル" aria-pressed="${shuffleOn}">${iconOnly('shuffle')}</button>
-            <button id="play-start-btn" class="pill-play-btn" aria-label="再生">${iconOnly('play')}<span>再生</span></button>
-          </div>
-        ` : ''}
+        <div class="hero-actions${editMode ? ' is-disabled' : ''}"${editMode ? ' aria-hidden="true"' : ''}>
+          <button id="shuffle-btn" class="icon-btn shuffle-btn${shuffleOn ? ' active' : ''}" aria-label="シャッフル" aria-pressed="${shuffleOn}"${canPlay && !editMode ? '' : ' disabled'}>${iconOnly('shuffle')}</button>
+          <button id="play-start-btn" class="pill-play-btn" aria-label="再生"${canPlay && !editMode ? '' : ' disabled'}>${iconOnly('play')}<span>再生</span></button>
+        </div>
       </div>
 
       ${fetchError
         ? `<p class="error-banner">通信エラー：曲情報を取得できませんでした(${escapeHtml(fetchError)})。電波の良い場所で再度お試しください。</p>`
-        : `<p class="note">
-            ${shownTracks.length}曲
-            ${!editMode && unavailableIds.length ? `(うち${unavailableIds.length}曲は取得できませんでした)` : ''}
-          </p>`}
+        : ''}
 
       <ul class="list">
         ${shownTracks.length === 0
@@ -221,7 +215,7 @@ export function renderPlaylistDetail(container, {
         li.querySelector('.track-play').addEventListener('click', () => actions.onTrackTap(track.id, shuffleOn));
       });
 
-      if (showPlayButton) {
+      if (canPlay) {
         const shuffleBtn = container.querySelector('#shuffle-btn');
         shuffleBtn.addEventListener('click', () => {
           shuffleOn = !shuffleOn;

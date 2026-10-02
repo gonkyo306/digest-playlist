@@ -9,7 +9,8 @@ const ICONS = {
   add: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
   remove: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   minus: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M5 11h14v2H5z"/></svg>',
-  shuffle: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M14.83 13.41L13.42 14.82L16.55 17.95L14.5 20H20V14.5L17.96 16.54L14.83 13.41M14.5 4L16.54 6.04L4 18.59L5.41 20L17.96 7.46L20 9.5V4M10.59 9.17L5.41 4L4 5.41L9.17 10.58L10.59 9.17Z"/></svg>',
+  // フェーズ41：丸みのある2本の線が交差し、右向きの矢印へ伸びる形に変更（線の端は丸く、矢じりは塗りつぶし）
+  shuffle: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6.5H7C10.5 6.5 13 17.5 16.5 17.5H17.5"/><path d="M3 17.5H7C10.5 17.5 13 6.5 16.5 6.5H17.5"/></g><g fill="currentColor"><polygon points="16.5,2.8 22,6.5 16.5,10.2"/><polygon points="16.5,13.8 22,17.5 16.5,21.2"/></g></svg>',
   back: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>',
   edit: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>',
   more: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>',
@@ -24,14 +25,13 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 16.17L4.83 12l-1.41 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
   // フェーズ37（CR-072）：タブバーの検索タブ用アイコン（虫眼鏡。カード等の背景は付けない）
   search: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M10.5 4a6.5 6.5 0 110 13 6.5 6.5 0 010-13z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M15.3 15.3L20.5 20.5"/></svg>',
-  // フェーズ40（再修正4）：タブバーのプレイリストタブ用アイコン。外枠はcurrentColorに戻し、
-  // 他のアイコンと同じく非選択＝薄いグレー（var(--muted)）／選択中＝青（var(--accent)）で
-  // 切り替わるようにした。2連符はダークテーマでは黒固定、ライトテーマでは白固定（--tab-icon-note-color
-  // で切り替え）。連桁は緩やかな右肩上がりで、2本の縦棒がほぼ同じ長さになるよう右の音符を
-  // 少し高い位置に配置し、右の縦棒が連桁からはみ出さないよう接続位置を補正している。
-  // 枠の右上奥に2枚分の影（.tab-icon-peek1/2）を重ね、複数のプレイリストが連なっている
-  // 様子を表現している
-  playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="tab-icon-peek2" x="4.9" y="0.5" width="19" height="19" rx="6"/><rect class="tab-icon-peek1" x="3.7" y="1.5" width="19" height="19" rx="6"/><rect class="tab-icon-frame" x="2.5" y="2.5" width="19" height="19" rx="6"/><g class="tab-icon-notes"><polygon points="7.4,11.0 7.4,8.4 16.6,6.8 16.6,9.4"/><rect x="7.4" y="8.4" width="1.4" height="8.0"/><rect x="15.2" y="7.05" width="1.4" height="8.0"/><ellipse cx="7.1" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 7.1 16.4)"/><ellipse cx="14.9" cy="15.05" rx="2.1" ry="1.6" transform="rotate(-10 14.9 15.05)"/></g></svg>',
+  // フェーズ41（CR-072再修正6）：プレイリストタブ用アイコン。複数のプレイリストが後ろに連なっている
+  // 様子を、右上へずらした2枚の影（.tab-icon-peek1/2）で表現する。ずらし幅をフェーズ40の約2倍に
+  // 広げ、各層の間にタブバーの背景色の細い区切り線（stroke）を入れて、層の境目が分かるようにした。
+  // 手前の枠はひと回り小さく、2連符も同じ比率（約0.9倍）で収めている。枠・影の色は
+  // currentColorに追従する（非選択＝薄いグレー／選択中＝青）。2連符はテーマに応じて黒／白
+  // （--tab-icon-note-color）。連桁は緩やかな右肩上がりで、2本の縦棒はほぼ同じ長さにしてある
+  playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="tab-icon-peek2" x="6.3" y="0.7" width="17" height="17" rx="5.4"/><rect class="tab-icon-peek1" x="3.9" y="3.1" width="17" height="17" rx="5.4"/><rect class="tab-icon-frame" x="1.5" y="5.5" width="17" height="17" rx="5.4"/><g class="tab-icon-notes" transform="translate(10,14) scale(.895) translate(-12,-12)"><polygon points="7.4,11.0 7.4,8.4 16.6,6.8 16.6,9.4"/><rect x="7.4" y="8.4" width="1.4" height="8.0"/><rect x="15.2" y="7.05" width="1.4" height="8.0"/><ellipse cx="7.1" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 7.1 16.4)"/><ellipse cx="14.9" cy="15.05" rx="2.1" ry="1.6" transform="rotate(-10 14.9 15.05)"/></g></svg>',
   // フェーズ37（再修正2）：追加直後の取り消し操作（CR-073）のアイコンを、×から反時計回りの
   // 巻き戻しアイコンに変更。フェーズ39（再修正3）：隙間を約40度→約60度に拡大し、
   // 円が閉じていないことをより分かりやすくした
