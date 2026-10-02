@@ -13,6 +13,8 @@
   --placeholder-bg: #333;
   --error-bg: #3a1f22;
   --error-fg: #ffb4b4;
+  /* フェーズ40：プレイリストタブアイコンの2連符の色（ダークテーマは黒固定） */
+  --tab-icon-note-color: #111318;
 }
 @media (prefers-color-scheme: light) {
   :root {
@@ -23,6 +25,8 @@
     --accent-fg: #ffffff;
     --card: #ffffff;
     --btn-bg: #e9eaee;
+    /* フェーズ40：ライトテーマでは2連符を白固定にする（外枠のグレー／青との対比を保つため） */
+    --tab-icon-note-color: #ffffff;
     --border: #dcdfe4;
     --danger: #d1435b;
     --placeholder-bg: #dcdfe4;
@@ -441,19 +445,27 @@ h1 { font-size: 1.1rem; }
 }
 .icon-only svg { flex-shrink: 0; }
 
-/* --- フェーズ7：画面全体のタブバー（FR-6.1） --- */
-.tab-bar {
+/* フェーズ40：ミニプレイヤーとタブバーを重なりなく積み重ねるため、両者をまとめて1つの
+   固定表示グループ（#bottom-bar）にする。タブバーの実際の高さに依存した固定値での位置指定
+   （旧#mini-player{bottom:52px}）をやめ、どちらも通常のフローで縦に並べるだけにする */
+#bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  display: flex;
   max-width: 480px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 500;
+}
+
+/* --- フェーズ7：画面全体のタブバー（FR-6.1） --- */
+.tab-bar {
+  display: flex;
   background: var(--card);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
-  z-index: 500;
 }
 /* フェーズ37（CR-072）：アイコンをラベルの上に縦に並べる。アイコン自体はカード等の背景を
    持たず単体で表示する（NFR-5.7のアイコン単体表示の方針に合わせる） */
@@ -474,28 +486,24 @@ h1 { font-size: 1.1rem; }
    width/height属性によらず、表示サイズを固定する（プレイリストタブ・検索タブでラベルまでの
    高さを一致させる） */
 .tab-bar .tab-btn .icon-only svg { width: 24px; height: 24px; }
-/* フェーズ39（再修正3）：プレイリストタブの外枠は、タブボタン自体の文字色（非選択時はmuted色）に
-   追従させず、非選択＝白／選択＝var(--accent)（青）で明確に切り替える。2連符はicons.js側で
-   常に黒固定にしているため、枠の塗りは2連符とのコントラストを保てる白・青を指定する
-   （ライトテーマでは枠が背景カードと同化するが、2連符自体の視認性は保たれる） */
-.tab-bar .tab-btn .tab-icon-frame { fill: #fff; }
-.tab-bar .tab-btn.active .tab-icon-frame { fill: var(--accent); }
+/* フェーズ40（再修正4）：プレイリストタブの外枠は、検索タブなど他のアイコンと同じく
+   currentColorに追従させる（非選択＝var(--muted)の薄いグレー／選択中＝var(--accent)の青）。
+   2連符自体は--tab-icon-note-color（ダーク＝黒固定／ライト＝白固定）で塗る */
+.tab-bar .tab-btn .tab-icon-frame { fill: currentColor; }
+.tab-bar .tab-btn .tab-icon-notes { fill: var(--tab-icon-note-color); }
+/* 枠の右上奥に重ねる2枚の影。複数のプレイリストが後ろに連なっている様子を表す
+   （currentColorに追従させ、非選択／選択中の色切り替えにも合わせて変化させる） */
+.tab-bar .tab-btn .tab-icon-peek1 { fill: currentColor; opacity: 0.75; }
+.tab-bar .tab-btn .tab-icon-peek2 { fill: currentColor; opacity: 0.5; }
 
 /* --- フェーズ8：常時表示のミニプレイヤー（FR-4.16, FR-4.17） --- */
 #mini-player {
   display: none;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 52px;
-  max-width: 480px;
-  margin: 0 auto;
   align-items: center;
   gap: 8px;
   background: var(--card);
   border-top: 1px solid var(--border);
   padding: 8px 12px;
-  z-index: 400;
 }
 #mini-player.visible { display: flex; }
 .mini-player-tap {

@@ -24,11 +24,14 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 16.17L4.83 12l-1.41 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
   // フェーズ37（CR-072）：タブバーの検索タブ用アイコン（虫眼鏡。カード等の背景は付けない）
   search: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M10.5 4a6.5 6.5 0 110 13 6.5 6.5 0 010-13z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M15.3 15.3L20.5 20.5"/></svg>',
-  // フェーズ39（再修正3）：タブバーのプレイリストタブ用アイコン。外枠は輪郭線ではなく塗りつぶし
-  // （非選択＝白／選択＝青。currentColorに追従）にし、2連符との隙間も含めて色が切り替わるように
-  // した。2連符自体は常に黒で固定。連桁（横棒）は右肩上がりに傾け、2連符の右上～外枠の間隔と
-  // 左下～外枠の間隔が等しくなるよう、枠の中央に対称に配置している
-  playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="tab-icon-frame" x="2.5" y="2.5" width="19" height="19" rx="6"/><g fill="#111318"><polygon points="8.7,10.6 8.7,8.8 17.9,5.8 17.9,7.6"/><rect x="8.7" y="8.8" width="1.4" height="7.6"/><rect x="16.5" y="5.8" width="1.4" height="10.6"/><ellipse cx="8.4" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 8.4 16.4)"/><ellipse cx="16.2" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 16.2 16.4)"/></g></svg>',
+  // フェーズ40（再修正4）：タブバーのプレイリストタブ用アイコン。外枠はcurrentColorに戻し、
+  // 他のアイコンと同じく非選択＝薄いグレー（var(--muted)）／選択中＝青（var(--accent)）で
+  // 切り替わるようにした。2連符はダークテーマでは黒固定、ライトテーマでは白固定（--tab-icon-note-color
+  // で切り替え）。連桁は緩やかな右肩上がりで、2本の縦棒がほぼ同じ長さになるよう右の音符を
+  // 少し高い位置に配置し、右の縦棒が連桁からはみ出さないよう接続位置を補正している。
+  // 枠の右上奥に2枚分の影（.tab-icon-peek1/2）を重ね、複数のプレイリストが連なっている
+  // 様子を表現している
+  playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="tab-icon-peek2" x="4.9" y="0.5" width="19" height="19" rx="6"/><rect class="tab-icon-peek1" x="3.7" y="1.5" width="19" height="19" rx="6"/><rect class="tab-icon-frame" x="2.5" y="2.5" width="19" height="19" rx="6"/><g class="tab-icon-notes"><polygon points="7.4,11.0 7.4,8.4 16.6,6.8 16.6,9.4"/><rect x="7.4" y="8.4" width="1.4" height="8.0"/><rect x="15.2" y="7.05" width="1.4" height="8.0"/><ellipse cx="7.1" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 7.1 16.4)"/><ellipse cx="14.9" cy="15.05" rx="2.1" ry="1.6" transform="rotate(-10 14.9 15.05)"/></g></svg>',
   // フェーズ37（再修正2）：追加直後の取り消し操作（CR-073）のアイコンを、×から反時計回りの
   // 巻き戻しアイコンに変更。フェーズ39（再修正3）：隙間を約40度→約60度に拡大し、
   // 円が閉じていないことをより分かりやすくした
