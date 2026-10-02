@@ -6,6 +6,8 @@
 // フェーズ28（CR-043/045）：新規作成は右上の＋ボタンから専用画面（FR-2.17）へ遷移する方式に一本化。
 // これまでの新規作成用インライン入力欄は、プレイリスト名で一覧を絞り込む検索ボックス（FR-2.18）に
 // 転用した（検索ボタンは設置せず、入力するたびに動的に絞り込む。CR-046と対になる方針）。
+// フェーズ39：曲名・曲数をインライン要素（span）で組んでいたため2行に積み上がらず、検索結果の行
+// （div、2行積み）とタイトルの表示位置がずれる不具合を修正した。
 
 import { iconOnly } from './icons.js';
 import { blobToUrl } from '../blob-url-cache.js';
@@ -56,8 +58,8 @@ export function renderPlaylistList(container, playlists, actions) {
             <button class="list-item-main playlist-open" data-id="${escapeHtml(m.id)}">
               ${playlistArtworkHtml(m, m.artwork)}
               <div class="item-main">
-                <span class="item-name">${escapeHtml(m.name)}</span>
-                <span class="item-sub">${m.trackIds.length}曲</span>
+                <div class="item-name">${escapeHtml(m.name)}</div>
+                <div class="item-sub">${m.trackIds.length}曲</div>
               </div>
             </button>
           </li>

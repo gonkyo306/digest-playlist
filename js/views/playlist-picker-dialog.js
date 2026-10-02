@@ -11,11 +11,17 @@
 // 一覧自体は既存の縦並びリスト（.picker-list、スクロール可能）のデザインを踏襲する。
 // CR-069：オーバーレイ／ボックスの組み立てとスライドアニメーションはdialog.jsのbuildOverlay/
 // closeOverlayを共通利用する。
+// フェーズ39（CR-061、復活）：showAddDestinationPickerで開いた場合のみ、モーダル右上に
+// その場で新しいプレイリストを作成できる＋ボタンを表示する。タップするとCREATE_NEWを返して
+// 閉じる（実際のプレイリスト作成画面への遷移は呼び出し側のsearch-view.jsが行う）。
 
 import { enqueueDialog, buildOverlay, closeOverlay } from './dialog.js';
 import { blobToUrl } from '../blob-url-cache.js';
 import { iconOnly } from './icons.js';
 import { pushBackState, popBackState } from '../back-stack.js';
+
+/** showAddDestinationPickerの＋ボタンがタップされたことを示す戻り値（CR-061） */
+export const CREATE_NEW = '__create_new__';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,11 +47,15 @@ function pickerRowArtworkHtml(playlist, artwork) {
  * プレイリスト一覧から選ぶモーダル本体（enqueueDialogの外側。showPlaylistPicker/showAddDestinationPickerの共通実装）。
  * @param {Array<{id: string, name: string, trackIds: Array, artwork?: object}>} playlists
  * @param {string|null} lastUsedPlaylistId 指定があれば、その playlist の行の右端にラベルを付ける（並び順は変えない）
+ * @param {boolean} showCreateButton trueなら右上に＋ボタンを表示する（CR-061、showAddDestinationPickerのみ）
  */
-function openPickerList(playlists, lastUsedPlaylistId = null) {
+function openPickerList(playlists, lastUsedPlaylistId = null, showCreateButton = false) {
   return new Promise((resolve) => {
     const overlay = buildOverlay(`
-      <h2 class="dialog-title">追加先のプレイリストを選ぶ</h2>
+      <div class="dialog-title-row">
+        <h2 class="dialog-title">追加先のプレイリストを選ぶ</h2>
+        ${showCreateButton ? `<button type="button" class="icon-btn picker-create-btn" aria-label="プレイリストを作成">${iconOnly('add')}</button>` : ''}
+      </div>
       ${playlists.length === 0
         ? '<p class="dialog-message">プレイリストがまだありません。</p>'
         : `<ul class="list picker-list">
@@ -54,8 +64,8 @@ function openPickerList(playlists, lastUsedPlaylistId = null) {
                 <button type="button" class="list-item-main playlist-picker-item" data-id="${escapeHtml(m.id)}">
                   ${pickerRowArtworkHtml(m, m.artwork)}
                   <span class="item-main">
-                    <span class="item-name">${escapeHtml(m.name)}</span>
-                    <span class="item-sub">${m.trackIds.length}曲</span>
+                    <div class="item-name">${escapeHtml(m.name)}</div>
+                    <div class="item-sub">${m.trackIds.length}曲</div>
                   </span>
                   ${m.id === lastUsedPlaylistId ? '<span class="picker-last-used-badge">前回追加</span>' : ''}
                 </button>
@@ -77,6 +87,7 @@ function openPickerList(playlists, lastUsedPlaylistId = null) {
       btn.addEventListener('click', () => { popBackState(); finish(btn.dataset.id); });
     });
     overlay.querySelector('.dialog-cancel').addEventListener('click', () => { popBackState(); finish(null); });
+    overlay.querySelector('.picker-create-btn')?.addEventListener('click', () => { popBackState(); finish(CREATE_NEW); });
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) { popBackState(); finish(null); }
     });
@@ -94,11 +105,13 @@ export function showPlaylistPicker(playlists) {
 /**
  * 追加先を選ぶ（FR-2.4）。全プレイリストを一覧表示し、各行にジャケット画像を表示する。
  * 前回追加したプレイリストがあれば、並び順はそのままに、その行の右端に「前回追加」ラベルを付ける。
+ * 右上の＋ボタン（CR-061）をタップした場合はCREATE_NEWを返す（曲の自動追加は行わない。
+ * 呼び出し側でプレイリスト作成画面（FR-2.17）への遷移を行う）。
  * @param {Array<{id: string, name: string, trackIds: Array, artwork?: object}>} playlists
  * @param {{lastUsedPlaylistId?: string|null}} [options]
  * @returns {Promise<string|null>}
  */
 export function showAddDestinationPicker(playlists, options = {}) {
   const { lastUsedPlaylistId = null } = options;
-  return enqueueDialog(() => openPickerList(playlists, lastUsedPlaylistId));
+  return enqueueDialog(() => openPickerList(playlists, lastUsedPlaylistId, true));
 }

@@ -29,8 +29,10 @@ import {
 import { iconOnly } from './icons.js';
 import { largeArtworkUrl } from '../artwork-url.js';
 import { blobToUrl } from '../blob-url-cache.js';
-import { showAddDestinationPicker } from './playlist-picker-dialog.js';
+import { showAddDestinationPicker, CREATE_NEW } from './playlist-picker-dialog.js';
 import { showCreatePlaylistPrompt } from './dialog.js';
+import { renderPlaylistCreate } from './playlist-create-view.js';
+import { setupMarquee } from '../marquee.js';
 import { pushBackState, popBackState } from '../back-stack.js';
 
 function escapeHtml(str) {
@@ -112,8 +114,13 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     if (playlists.length === 0) {
       currentDestination = null;
     } else {
-      const lastId = actions.onGetLastUsedPlaylistId();
-      const chosen = playlists.find((p) => p.id === lastId) || playlists[0];
+      // フェーズ39：他のタブへ移動して戻ってきたときに、ピッカーで明示的に選んだ追加先が
+      // 「前回追加」したプレイリストへ勝手に戻ってしまう不具合を修正。既に選んでいた追加先が
+      // まだ存在するなら、それを最優先で再解決する（無ければ前回追加→一覧の先頭の順で選ぶ）
+      const preferredId = previousId || actions.onGetLastUsedPlaylistId();
+      const chosen = playlists.find((p) => p.id === preferredId)
+        || playlists.find((p) => p.id === actions.onGetLastUsedPlaylistId())
+        || playlists[0];
       const artwork = await actions.onResolveArtwork(chosen);
       currentDestination = { ...chosen, artwork };
     }
@@ -140,15 +147,30 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       <button type="button" id="dest-header-btn" class="dest-header" aria-label="追加先プレイリストを変更">
         <span class="dest-header-label">追加先</span>
         ${destinationArtworkImgHtml(currentDestination.artwork, currentDestination.id)}
-        <span class="dest-header-name">${escapeHtml(currentDestination.name)}</span>
+        <span class="dest-header-name marquee"><span class="marquee-track"><span class="marquee-text">${escapeHtml(currentDestination.name)}</span></span></span>
       </button>
     `;
+  }
+
+  /** プレイリスト作成画面（FR-2.17）へ遷移し、作成完了／キャンセルを待つ（CR-061の＋ボタン用） */
+  function openFullCreateScreen() {
+    return new Promise((resolve) => {
+      renderPlaylistCreate(container, {}, {
+        onCancel: () => resolve(null),
+        onSave: async (name, imageBlob) => {
+          const created = await actions.onCreatePlaylist(name, imageBlob);
+          resolve({ ...created, artwork: imageBlob ? { source: 'custom', blob: imageBlob } : { source: 'none' } });
+        },
+      });
+    });
   }
 
   /** 追加先ヘッダーの開閉・遷移イベントを結びつける。destinationが変わったらonChangedを呼ぶ */
   function bindDestinationHeaderEvents(slot, onChanged) {
     const headerBtn = slot.querySelector('#dest-header-btn');
     if (!headerBtn) return;
+    // フェーズ39：曲名と同じく、長いプレイリスト名も横幅に収まらなければ自動スクロールする
+    setupMarquee(headerBtn.querySelector('.dest-header-name'));
     headerBtn.addEventListener('click', async () => {
       const playlists = await actions.onGetPlaylists();
       const artworkMap = await actions.onResolveArtworkForAll(playlists);
@@ -156,6 +178,16 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const chosenId = await showAddDestinationPicker(withArtwork, {
         lastUsedPlaylistId: actions.onGetLastUsedPlaylistId(),
       });
+      // フェーズ39（CR-061、復活）：モーダル右上の＋ボタンから、その場でプレイリストを作成する
+      if (chosenId === CREATE_NEW) {
+        const created = await openFullCreateScreen();
+        if (created) {
+          currentDestination = created;
+          justAddedIds = new Set();
+        }
+        onChanged(); // 作成画面を閉じて、元のステップを再描画する（キャンセル時も同様）
+        return;
+      }
       // CR-073：ポップアップ（追加先選択モーダル）を開いて戻ってくると、選択を変えたかどうかに
       // 関わらず、取り消し可能な表示を「追加済」の確定表示にする
       const changed = chosenId && (!currentDestination || chosenId !== currentDestination.id);
@@ -212,7 +244,14 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     const result = await actions.onAddTrack(currentDestination.id, track.id);
     if (result.added) {
       currentDestination = { ...currentDestination, trackIds: [...currentDestination.trackIds, track.id] };
-      justAddedIds.add(track.id); // フェーズ32（FR-1.21）：取り消し可能なチップの対象として記憶する
+      // フェーズ39：プレイリストが無い状態からその場で作成して追加した曲は、取り消し可能な
+      // チップではなく、最初から「追加済」の確定表示にする（justAddedIdsには記憶しない）
+      if (!justCreated) justAddedIds.add(track.id); // フェーズ32（FR-1.21）：取り消し可能なチップの対象として記憶する
+      if (justCreated) {
+        // フェーズ39：作成直後は曲がまだ無く代表画像が無いため、1曲追加した今、FR-2.10の
+        // フォールバック（1曲目のジャケット）で代表画像を解決し直す（右上の表示に反映させる）
+        currentDestination = { ...currentDestination, artwork: await actions.onResolveArtwork(currentDestination) };
+      }
     }
     // CR-074：新しく追加先を作った場合は、右上の常時表示を新しいプレイリストで更新するため、
     // 現在のステップ全体を再描画する（追加先を変更した場合と同じ扱い）

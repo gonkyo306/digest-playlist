@@ -24,11 +24,15 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 16.17L4.83 12l-1.41 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
   // フェーズ37（CR-072）：タブバーの検索タブ用アイコン（虫眼鏡。カード等の背景は付けない）
   search: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M10.5 4a6.5 6.5 0 110 13 6.5 6.5 0 010-13z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M15.3 15.3L20.5 20.5"/></svg>',
-  // フェーズ37（再修正2）：タブバーのプレイリストタブ用アイコン（2連符を丸みのある四角で囲んだ意匠）
-  playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="6" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><rect x="8.3" y="6" width="7.6" height="1.7" rx="0.6"/><rect x="8.3" y="6" width="1.5" height="9.2"/><rect x="14.5" y="6" width="1.5" height="9.2"/><ellipse cx="8" cy="16.3" rx="2.1" ry="1.6" transform="rotate(-15 8 16.3)"/><ellipse cx="14.2" cy="15.8" rx="2.1" ry="1.6" transform="rotate(-15 14.2 15.8)"/></g></svg>',
+  // フェーズ39（再修正3）：タブバーのプレイリストタブ用アイコン。外枠は輪郭線ではなく塗りつぶし
+  // （非選択＝白／選択＝青。currentColorに追従）にし、2連符との隙間も含めて色が切り替わるように
+  // した。2連符自体は常に黒で固定。連桁（横棒）は右肩上がりに傾け、2連符の右上～外枠の間隔と
+  // 左下～外枠の間隔が等しくなるよう、枠の中央に対称に配置している
+  playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="tab-icon-frame" x="2.5" y="2.5" width="19" height="19" rx="6"/><g fill="#111318"><polygon points="8.7,10.6 8.7,8.8 17.9,5.8 17.9,7.6"/><rect x="8.7" y="8.8" width="1.4" height="7.6"/><rect x="16.5" y="5.8" width="1.4" height="10.6"/><ellipse cx="8.4" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 8.4 16.4)"/><ellipse cx="16.2" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 16.2 16.4)"/></g></svg>',
   // フェーズ37（再修正2）：追加直後の取り消し操作（CR-073）のアイコンを、×から反時計回りの
-  // 巻き戻しアイコンに変更。左側だけ小さく切れた、ほぼ一周する円弧に矢じりを付けた意匠
-  rewind: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M4.48 14.74A8 8 0 1 0 4.48 9.26"/><path fill="currentColor" d="M2.77 13.96L7.77 10.46 1.19 8.06Z"/></svg>',
+  // 巻き戻しアイコンに変更。フェーズ39（再修正3）：隙間を約40度→約60度に拡大し、
+  // 円が閉じていないことをより分かりやすくした
+  rewind: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M5.07 16A8 8 0 1 0 5.07 8"/><path fill="currentColor" d="M2.57 12.33L7.67 9.5 2.47 6.5Z"/></svg>',
 };
 
 /**

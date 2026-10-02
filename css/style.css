@@ -379,6 +379,16 @@ h1 { font-size: 1.1rem; }
   font-size: 1.05rem;
   margin: 0 0 8px;
 }
+/* フェーズ39（CR-061、復活）：追加先選択モーダル右上の＋ボタン（プレイリスト作成画面へ遷移） */
+.dialog-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.dialog-title-row .dialog-title { margin: 0; }
+.picker-create-btn { color: var(--accent); flex-shrink: 0; }
 .dialog-message {
   font-size: 0.9rem;
   color: var(--muted);
@@ -463,7 +473,13 @@ h1 { font-size: 1.1rem; }
 /* フェーズ37（再修正2）：2つのタブのアイコンの見た目の大きさが揃うよう、各アイコン自体の
    width/height属性によらず、表示サイズを固定する（プレイリストタブ・検索タブでラベルまでの
    高さを一致させる） */
-.tab-bar .tab-btn .icon-only svg { width: 20px; height: 20px; }
+.tab-bar .tab-btn .icon-only svg { width: 24px; height: 24px; }
+/* フェーズ39（再修正3）：プレイリストタブの外枠は、タブボタン自体の文字色（非選択時はmuted色）に
+   追従させず、非選択＝白／選択＝var(--accent)（青）で明確に切り替える。2連符はicons.js側で
+   常に黒固定にしているため、枠の塗りは2連符とのコントラストを保てる白・青を指定する
+   （ライトテーマでは枠が背景カードと同化するが、2連符自体の視認性は保たれる） */
+.tab-bar .tab-btn .tab-icon-frame { fill: #fff; }
+.tab-bar .tab-btn.active .tab-icon-frame { fill: var(--accent); }
 
 /* --- フェーズ8：常時表示のミニプレイヤー（FR-4.16, FR-4.17） --- */
 #mini-player {
@@ -506,13 +522,16 @@ h1 { font-size: 1.1rem; }
 /* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に追加先プレイリストの
    常時表示（フェーズ28／CR-047、FR-1.19）を置く。min-heightで高さを揃え、プレイリスト
    一覧画面（フェーズ22で同じクラスを適用）と検索画面とで、直下の入力欄の表示位置が
-   ずれないようにする --- */
+   ずれないようにする。フェーズ39（再修正3）：追加先カード（.dest-header）が「追加先」
+   ラベル分の余白を持つため実高さ48pxになっており、44pxのままでは検索タブ側だけ本文の
+   開始位置が下がっていた。検索タブを縮めるのではなく、min-heightを48pxに引き上げて
+   全画面の見出しをこちらに揃える --- */
 .screen-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 44px;
+  min-height: 48px;
 }
 .screen-header h1 { margin: 0; }
 
@@ -597,6 +616,13 @@ h1 { font-size: 1.1rem; }
   justify-content: center;
 }
 .added-undo-x svg { width: 10px; height: 10px; }
+/* フェーズ39（再修正3）：取り消しバッジをタップした瞬間、反時計回りに1周回転させてから
+   （.added-check-wrap.fading-outへの切り替えまでの間、一呼吸おく）フェードアウトする */
+.added-undo-x.spin-once { animation: undo-x-spin 0.5s linear; }
+@keyframes undo-x-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
 
 /* フェーズ37（再修正2）：これが追加先であることを示す小さなラベル。カード内の1行に収める
    配置（前回修正）から、カードの右上に絶対配置する方式に変更した（.dest-header側に
@@ -630,12 +656,33 @@ h1 { font-size: 1.1rem; }
   max-width: 55vw;
 }
 .dest-header .artwork-sm { width: 32px; height: 32px; }
+/* フェーズ39：横幅に収まらない場合は省略記号ではなく自動スクロール（.marquee）で見せるため、
+   text-overflow: ellipsisは使わない */
 .dest-header-name {
   font-size: 0.85rem;
   font-weight: 600;
+  min-width: 0;
+}
+
+/* --- フェーズ39：曲名・プレイリスト名が横幅に収まらないとき、自動スクロールで見せる汎用の
+   仕組み（ミニプレイヤーの曲名、検索タブ右上の追加先プレイリスト名）。収まる場合は静止表示の
+   ままにする（js側でscrollWidth > clientWidthのときだけ.scrollingを付け、テキストを複製する） --- */
+.marquee {
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+}
+.marquee-track .marquee-text { padding-right: 32px; }
+.marquee.scrolling .marquee-track {
+  animation: marquee-scroll 8s linear infinite;
+}
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 /* --- フェーズ28（CR-043）：プレイリスト作成画面（FR-2.17） --- */

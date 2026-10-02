@@ -163,6 +163,9 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
     const xBtn = wrapEl.querySelector('.added-undo-x');
     xBtn.addEventListener('click', async () => {
       xBtn.disabled = true;
+      // フェーズ39（再修正3）：タップした瞬間、巻き戻しアイコン自体を反時計回りに1周回転させる
+      // （チェックアイコンは回転させない）
+      xBtn.classList.add('spin-once');
       let result;
       try {
         result = await onRemove(track);
@@ -172,20 +175,25 @@ export function bindTrackRowEvents(listEl, tracks, { previewPlayer, onAdd, onRem
       if (!wrapEl.isConnected) return; // 待っている間に画面が切り替わっていれば何もしない
       if (!result || !result.removed) {
         xBtn.disabled = false;
+        xBtn.classList.remove('spin-once');
         return;
       }
-      wrapEl.classList.add('fading-out');
+      // 回転（500ms）が終わったあと、一呼吸（150ms）おいてからフェードアウトを始める
       setTimeout(() => {
         if (!wrapEl.isConnected) return;
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = addControlHtml(index, false, false);
-        const plusBtn = wrapper.firstElementChild;
-        plusBtn.classList.add('fading-in');
-        wrapEl.replaceWith(plusBtn);
-        // 次のフレームでクラスを外し、フェードインのtransitionを発火させる
-        requestAnimationFrame(() => plusBtn.classList.remove('fading-in'));
-        bindAddButton(plusBtn, track, index);
-      }, 280);
+        wrapEl.classList.add('fading-out');
+        setTimeout(() => {
+          if (!wrapEl.isConnected) return;
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = addControlHtml(index, false, false);
+          const plusBtn = wrapper.firstElementChild;
+          plusBtn.classList.add('fading-in');
+          wrapEl.replaceWith(plusBtn);
+          // 次のフレームでクラスを外し、フェードインのtransitionを発火させる
+          requestAnimationFrame(() => plusBtn.classList.remove('fading-in'));
+          bindAddButton(plusBtn, track, index);
+        }, 280);
+      }, 650);
     });
   }
 

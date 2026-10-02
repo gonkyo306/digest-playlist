@@ -8,6 +8,7 @@
 // CR-063：全曲を一巡して自動停止した場合（finished）は、一時停止の表示にし、次への操作を非活性化する。
 
 import { iconOnly } from './icons.js';
+import { setupMarquee } from '../marquee.js';
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,7 +36,7 @@ export function renderMiniPlayer(container, state, actions) {
     <button type="button" class="mini-player-tap" ${isPreview ? 'aria-hidden="true" tabindex="-1"' : ''}>
       <img src="${escapeHtml(state.track.artwork || '')}" alt="" class="artwork-sm">
       <div class="item-main">
-        <div class="item-name">${escapeHtml(state.track.title)}</div>
+        <div class="item-name marquee"><span class="marquee-track"><span class="marquee-text">${escapeHtml(state.track.title)}</span></span></div>
         <div class="item-sub">${escapeHtml(state.track.artist)}</div>
       </div>
     </button>
@@ -44,6 +45,8 @@ export function renderMiniPlayer(container, state, actions) {
       <button type="button" class="icon-btn mini-next" aria-label="次へ" ${isPreview || finished ? 'disabled' : ''}>${iconOnly('next')}</button>
     </div>
   `;
+  // フェーズ39：曲名が横幅に収まらないときは自動スクロールする（ジャケット・操作ボタンの位置は動かさない）
+  setupMarquee(container.querySelector('.item-name'));
   if (!isPreview) {
     container.querySelector('.mini-player-tap').addEventListener('click', actions.onTap);
   }
