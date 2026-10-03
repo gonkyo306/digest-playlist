@@ -54,7 +54,7 @@ export function formatAlbumForDisplay(result) {
   };
 }
 
-/** キーワードでアルバムを検索するURLを組み立てる（CR-017：統合検索でのアルバム候補用） */
+/** キーワードでアルバムを検索するURLを組み立てる（統合検索でのアルバム候補用） */
 export function buildAlbumSearchUrl(term, country = 'jp', limit = 5) {
   const trimmed = (term || '').trim();
   if (!trimmed) throw new Error('検索キーワードを入力してください');
@@ -85,18 +85,8 @@ export function buildAlbumTracksUrl(collectionId, country = 'jp', limit = STAGE_
   return `${LOOKUP_BASE}?${params.toString()}`;
 }
 
-/** アーティスト名で検索し、表示用のアーティスト一覧を返す */
-export async function fetchArtists(term, country = 'jp') {
-  const res = await fetch(buildArtistSearchUrl(term, country));
-  if (!res.ok) throw new Error(`アーティスト検索に失敗しました (status: ${res.status})`);
-  const json = await res.json();
-  return (json.results || [])
-    .filter((r) => r.wrapperType === 'artist')
-    .map(formatArtistForDisplay);
-}
-
 /**
- * キーワードでアルバムを検索し、表示用のアルバム一覧を返す（CR-017：統合検索の上位候補）。
+ * キーワードでアルバムを検索し、表示用のアルバム一覧を返す（統合検索の上位候補）。
  * 件数は少数（既定5件）に絞る（一覧が長くなりすぎないようにするための実装上の判断）。
  */
 export async function fetchAlbumsByTerm(term, country = 'jp', limit = 5) {
@@ -107,7 +97,7 @@ export async function fetchAlbumsByTerm(term, country = 'jp', limit = 5) {
 }
 
 /**
- * キーワードでアーティストを検索し、件数を絞った表示用のアーティスト一覧を返す（CR-017：統合検索の上位候補）。
+ * キーワードでアーティストを検索し、件数を絞った表示用のアーティスト一覧を返す（統合検索の上位候補）。
  */
 export async function fetchArtistsLimited(term, country = 'jp', limit = 5) {
   const res = await fetch(buildArtistSearchUrlLimited(term, country, limit));

@@ -1,11 +1,11 @@
-// CR-028（NFR-5.3）：複数のダイアログ・オーバーレイが同時に開かないようにする、
+// NFR-5.3：複数のダイアログ・オーバーレイが同時に開かないようにする、
 // enqueueDialogの直列化ロジックのUnitテスト（DOM操作を伴わない範囲で）。
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { enqueueDialog } from '../js/views/dialog.js';
 
-test('enqueueDialog: 1件目が解決するまで、2件目のfactoryは呼ばれない (CR-028)', async () => {
+test('enqueueDialog: 1件目が解決するまで、2件目のfactoryは呼ばれない', async () => {
   const order = [];
   let resolveFirst;
   const firstPromise = new Promise((resolve) => { resolveFirst = resolve; });

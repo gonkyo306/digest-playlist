@@ -104,7 +104,7 @@ test('start: 1曲目が再生され、履歴・表示反映(onTrackChange)が行
   assert.equal(player.currentTrack().id, changes[0].id);
 });
 
-test('start(startTrackIndex): 指定した曲から再生が始まる (CR-032, FR-2.13)', async () => {
+test('start(startTrackIndex): 指定した曲から再生が始まる (FR-2.13)', async () => {
   const tracks = makeTracks(5);
   const { player, changes } = createPlayer(tracks);
   await player.start(3);
@@ -113,7 +113,7 @@ test('start(startTrackIndex): 指定した曲から再生が始まる (CR-032, F
   assert.equal(player.currentTrack().id, tracks[3].id);
 });
 
-test('start(startTrackIndex): 2曲目以降は残りの曲がすべて含まれる (CR-032, FR-2.13)', async () => {
+test('start(startTrackIndex): 2曲目以降は残りの曲がすべて含まれる (FR-2.13)', async () => {
   const tracks = makeTracks(5);
   const { player } = createPlayer(tracks);
   await player.start(3);
@@ -169,7 +169,7 @@ test('togglePlayPause: 再生中に呼ぶと一時停止し、もう一度呼ぶ
   assert.equal(player.playing, true);
 });
 
-test('1曲のみのプレイリストは、再生が終わると自動停止する（繰り返さない） (FR-4.14, CR-063)', async () => {
+test('1曲のみのプレイリストは、再生が終わると自動停止する（繰り返さない） (FR-4.14)', async () => {
   const tracks = makeTracks(1);
   const { player, createdAudios, changes } = createPlayer(tracks);
   assert.equal(player.isSingleTrack, true);
@@ -182,9 +182,9 @@ test('1曲のみのプレイリストは、再生が終わると自動停止す�
   assert.equal(player.playing, false);
 });
 
-// --- CR-063：全曲を一巡すると自動停止する（無限ループを廃止） ---
+// --- 全曲を一巡すると自動停止する（無限ループを廃止） ---
 
-test('複数曲のプレイリストは、全曲を一巡すると自動停止し、再シャッフルして続けない (FR-4.4, CR-063)', async () => {
+test('複数曲のプレイリストは、全曲を一巡すると自動停止し、再シャッフルして続けない (FR-4.4)', async () => {
   const tracks = makeTracks(3);
   const { player, createdAudios, changes } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
   await player.start();
@@ -199,7 +199,7 @@ test('複数曲のプレイリストは、全曲を一巡すると自動停止�
   assert.equal(player.playing, false);
 });
 
-test('一巡して自動停止すると、onPlaybackCompleteが呼ばれる (CR-063)', async () => {
+test('一巡して自動停止すると、onPlaybackCompleteが呼ばれる', async () => {
   const tracks = makeTracks(2);
   let completed = false;
   const player = new PlaylistPlayer(tracks, {
@@ -219,7 +219,7 @@ test('一巡して自動停止すると、onPlaybackCompleteが呼ばれる (CR-
   assert.equal(completed, true);
 });
 
-test('自動停止後は、next()・togglePlayPause()を呼んでも何も起きない (CR-063)', async () => {
+test('自動停止後は、next()・togglePlayPause()を呼んでも何も起きない', async () => {
   const tracks = makeTracks(2);
   const { player, createdAudios, changes } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
   await player.start();
@@ -237,7 +237,7 @@ test('自動停止後は、next()・togglePlayPause()を呼んでも何も起き
   assert.equal(player.playing, false);
 });
 
-test('クロスフェード有効でも、最後の曲ではクロスフェードせず自然に終わって自動停止する (CR-063)', async () => {
+test('クロスフェード有効でも、最後の曲ではクロスフェードせず自然に終わって自動停止する', async () => {
   const tracks = makeTracks(2);
   const { player, createdAudios, changes } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 2 });
   await player.start();
@@ -304,9 +304,9 @@ test('pauseForPreview: 検索結果の試聴時に、再生中のプレイリス
   assert.equal(player.playing, false);
 });
 
-// --- CR-038（FR-2.15, FR-2.16）：プレイリスト詳細のシャッフルON/OFF切り替え ---
+// --- FR-2.15, FR-2.16：プレイリスト詳細のシャッフルON/OFF切り替え ---
 
-test('shuffle:false を指定すると、渡した順番のまま先頭から再生される (CR-038)', async () => {
+test('shuffle:false を指定すると、渡した順番のまま先頭から再生される', async () => {
   const tracks = makeTracks(5);
   const { player } = createPlayer(tracks, { shuffle: false });
   await player.start();
@@ -314,7 +314,7 @@ test('shuffle:false を指定すると、渡した順番のまま先頭から再
   assert.equal(player.currentTrack().id, tracks[0].id);
 });
 
-test('shuffle:false + start(startIndex): 指定した曲から表示順のまま一巡する (CR-038)', async () => {
+test('shuffle:false + start(startIndex): 指定した曲から表示順のまま一巡する', async () => {
   const tracks = makeTracks(5);
   const { player } = createPlayer(tracks, { shuffle: false });
   await player.start(2);
@@ -322,7 +322,7 @@ test('shuffle:false + start(startIndex): 指定した曲から表示順のまま
   assert.equal(player.currentTrack().id, tracks[2].id);
 });
 
-test('shuffle:false では、並び順は再生中ずっと固定される（再シャッフルしない） (CR-038)', async () => {
+test('shuffle:false では、並び順は再生中ずっと固定される（再シャッフルしない）', async () => {
   const tracks = makeTracks(3);
   const { player, createdAudios } = createPlayer(tracks, { shuffle: false, crossfadeSeconds: 0 });
   await player.start();
@@ -342,9 +342,9 @@ test('shuffle省略時（既定）は、これまで通りランダムな初期�
   assert.notDeepEqual(player.order, Array.from({ length: 20 }, (_, i) => i));
 });
 
-// --- フェーズ41：端末側の都合による停止・再生開始待ちの扱い ---
+// --- 端末側の都合による停止・再生開始待ちの扱い ---
 
-test('端末側でaudio要素が一時停止されると、再生状態も一時停止に反映される (フェーズ41)', async () => {
+test('端末側でaudio要素が一時停止されると、再生状態も一時停止に反映される', async () => {
   const states = [];
   const { player, createdAudios } = createPlayer(makeTracks(3), { onPlayStateChange: (p) => states.push(p) });
   await player.start();
@@ -356,7 +356,7 @@ test('端末側でaudio要素が一時停止されると、再生状態も一時
   assert.equal(states.at(-1), false);
 });
 
-test('アプリ自身の一時停止操作では、pauseイベントが来ても状態通知が二重にならない (フェーズ41)', async () => {
+test('アプリ自身の一時停止操作では、pauseイベントが来ても状態通知が二重にならない', async () => {
   const states = [];
   const { player, createdAudios } = createPlayer(makeTracks(3), { onPlayStateChange: (p) => states.push(p) });
   await player.start();
@@ -366,7 +366,7 @@ test('アプリ自身の一時停止操作では、pauseイベントが来ても
   assert.equal(states.length, before + 1);
 });
 
-test('曲が自然に終わったときのpauseイベントでは、一時停止扱いにならない (フェーズ41)', async () => {
+test('曲が自然に終わったときのpauseイベントでは、一時停止扱いにならない', async () => {
   const { player, createdAudios } = createPlayer(makeTracks(3));
   await player.start();
   createdAudios[0].ended = true;
@@ -374,7 +374,7 @@ test('曲が自然に終わったときのpauseイベントでは、一時停止
   assert.equal(player.playing, true);
 });
 
-test('端末側でaudio要素が再開されると、再生状態も再生中に戻る (フェーズ41)', async () => {
+test('端末側でaudio要素が再開されると、再生状態も再生中に戻る', async () => {
   const { player, createdAudios } = createPlayer(makeTracks(3));
   await player.start();
   player.togglePlayPause(); // 一時停止
@@ -383,7 +383,7 @@ test('端末側でaudio要素が再開されると、再生状態も再生中に
   assert.equal(player.playing, true);
 });
 
-test('再生中の音声エラーでは、その曲を失敗として次の曲へ進む (フェーズ41)', async () => {
+test('再生中の音声エラーでは、その曲を失敗として次の曲へ進む', async () => {
   const tracks = makeTracks(3);
   const { player, createdAudios } = createPlayer(tracks, { shuffle: false });
   await player.start();
@@ -395,7 +395,7 @@ test('再生中の音声エラーでは、その曲を失敗として次の曲�
   assert.equal(player.playing, true);
 });
 
-test('AudioContextが中断されると、一時停止として扱う (フェーズ41)', async () => {
+test('AudioContextが中断されると、一時停止として扱う', async () => {
   const ctxs = [];
   const { player } = createPlayer(makeTracks(3), {
     crossfadeSeconds: 2,
@@ -413,7 +413,7 @@ test('AudioContextが中断されると、一時停止として扱う (フェー
   assert.equal(player.playing, false);
 });
 
-test('再生の開始待ち中も、currentTrack()はその曲を返し、loadingはtrueになる (フェーズ41)', async () => {
+test('再生の開始待ち中も、currentTrack()はその曲を返し、loadingはtrueになる', async () => {
   const tracks = makeTracks(3);
   let release;
   const { player } = createPlayer(tracks, {
@@ -432,7 +432,7 @@ test('再生の開始待ち中も、currentTrack()はその曲を返し、loadin
   assert.equal(player.playing, true);
 });
 
-test('togglePlayPause: 再開に失敗したら一時停止の表示に戻る (フェーズ41)', async () => {
+test('togglePlayPause: 再開に失敗したら一時停止の表示に戻る', async () => {
   const { player, createdAudios } = createPlayer(makeTracks(3));
   await player.start();
   player.togglePlayPause(); // 一時停止

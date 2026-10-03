@@ -5,6 +5,10 @@
   "type": "module",
   "description": "お気に入り曲プレイリストアプリ（個人利用・素のJavaScript）",
   "scripts": {
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:e2e": "node --test --test-concurrency=1 \"test/e2e/*.e2e.js\""
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
   }
 }

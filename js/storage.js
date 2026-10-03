@@ -1,4 +1,4 @@
-// フェーズ1：データの土台
+// データの土台
 // プレイリストのローカル保存（IndexedDB）。ログインなしで利用できる（FR-3.1）。
 // 保存するのは曲の識別情報のみ（models.js の isValidPlaylist 参照、FR-3.2）。
 //
@@ -8,7 +8,7 @@
 import { isValidPlaylist } from './models.js';
 
 const DB_NAME = 'digest-playlist';
-const DB_VERSION = 2; // v1→v2：CR-009「メドレー」→「プレイリスト」の呼称統一に伴うストア名変更
+const DB_VERSION = 2; // v1→v2：ストア名を「medleys」から「playlists」に変更（NFR-3.5）
 const STORE = 'playlists';
 const LEGACY_STORE = 'medleys'; // v1で使っていたストア名（既存データの移行用。削除しないこと）
 

@@ -1,4 +1,4 @@
-/* フェーズ5：ダーク／ライトテーマを端末設定に自動追従させる（FR-5.1） */
+/* ダーク／ライトテーマを端末設定に自動追従させる（FR-5.1） */
 :root {
   color-scheme: light dark;
   --bg: #111318;
@@ -13,7 +13,7 @@
   --placeholder-bg: #333;
   --error-bg: #3a1f22;
   --error-fg: #ffb4b4;
-  /* フェーズ40：プレイリストタブアイコンの2連符の色（ダークテーマは黒固定） */
+  /* プレイリストタブアイコンの2連符の色（ダークテーマは黒固定） */
   --tab-icon-note-color: #111318;
 }
 @media (prefers-color-scheme: light) {
@@ -25,7 +25,7 @@
     --accent-fg: #ffffff;
     --card: #ffffff;
     --btn-bg: #e9eaee;
-    /* フェーズ40：ライトテーマでは2連符を白固定にする（外枠のグレー／青との対比を保つため） */
+    /* ライトテーマでは2連符を白固定にする（外枠のグレー／青との対比を保つため） */
     --tab-icon-note-color: #ffffff;
     --border: #dcdfe4;
     --danger: #d1435b;
@@ -35,7 +35,7 @@
   }
 }
 * { box-sizing: border-box; }
-/* フェーズ42：ページの端までスクロールしたときの、ブラウザ・OS既定の端の演出（Androidの青い光など）や
+/* ページの端までスクロールしたときの、ブラウザ・OS既定の端の演出（Androidの青い光など）や
    引っ張って更新を出さない */
 html, body { overscroll-behavior: none; }
 body {
@@ -111,9 +111,9 @@ h1 { font-size: 1.1rem; }
   white-space: pre-wrap;
 }
 
-/* --- フェーズ2・3：一覧／詳細／検索画面 --- */
+/* --- 一覧／詳細／検索画面 --- */
 #app { max-width: 480px; margin: 0 auto; }
-/* フェーズ7・8：下部固定のタブバー・ミニプレイヤーの分だけ、本文の下に余白を確保する */
+/* 下部固定のタブバー・ミニプレイヤーの分だけ、本文の下に余白を確保する */
 #main-content { padding-bottom: 132px; }
 
 .inline-form {
@@ -130,7 +130,7 @@ h1 { font-size: 1.1rem; }
   color: var(--fg);
   font-size: 1rem;
 }
-/* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
+/* フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
    アクセントカラーの枠線に差し替える */
 .inline-form input:focus {
   outline: none;
@@ -143,10 +143,9 @@ h1 { font-size: 1.1rem; }
   text-align: center;
 }
 
-/* フェーズ28（CR-048）：Apple Musicのように、行はカード（角丸の背景ボックス）ではなく、
+/* Apple Musicのように、行はカード（角丸の背景ボックス）ではなく、
    行の下端の横線（区切り線）で区切る意匠に統一する（NFR-5.6）。
-   CR-066：一覧全体が上下を区切り線で囲まれた形になるよう、先頭行の上・最後の行の下にも
-   区切り線を追加した（旧仕様では先頭行の上・最後の行の下には区切り線が無かった） */
+   一覧全体が上下を区切り線で囲まれた形になるよう、先頭行の上・最後の行の下にも区切り線を付ける */
 .list-item {
   display: flex;
   align-items: center;
@@ -159,7 +158,7 @@ h1 { font-size: 1.1rem; }
 }
 .list-item-main {
   flex: 1;
-  /* フェーズ42：長いタイトルで行が横に膨らまないよう、内容幅に合わせて広がらせない（自動スクロールの前提） */
+  /* 長いタイトルで行が横に膨らまないよう、内容幅に合わせて広がらせない（自動スクロールの前提） */
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -175,12 +174,11 @@ h1 { font-size: 1.1rem; }
 .item-name { font-weight: 600; }
 .item-sub { color: var(--muted); font-size: 0.85rem; }
 
-/* フェーズ21（不具合修正）：.list-item-mainは既定で縦並び（プレイリスト名＋曲数等）だが、
+/* .list-item-mainは既定で縦並び（プレイリスト名＋曲数等）だが、
    種別アイコン・ジャケット・番号とタイトルを横並びで見せたい行（アーティスト・アルバムの各行）
-   ではこちらを使い、横並びに上書きする（CR-031/034）。フェーズ23：追加先選択の各行
-   （playlist-picker-item）も、名前・曲数とバッジを横並びにするため同様に扱う。
-   フェーズ32（CR-055）：プレイリスト一覧の各行（playlist-open）も、代表画像を横並びで
-   表示するため同様に扱う */
+   ではこちらを使い、横並びに上書きする。追加先選択の各行（playlist-picker-item）は
+   名前・曲数とバッジを、プレイリスト一覧の各行（playlist-open）は代表画像とともに、
+   横並びで表示するため、同様に扱う */
 .track-play,
 .result-artist-open,
 .result-album-open,
@@ -191,9 +189,9 @@ h1 { font-size: 1.1rem; }
   gap: 8px;
 }
 
-/* フェーズ28（CR-049）：アイコンのみの操作ボタンは、背景色付きの角丸ボックス（カード）を
+/* アイコンのみの操作ボタンは、背景色付きの角丸ボックス（カード）を
    持たず、アイコン単体で表示する（NFR-5.7）。削除（ゴミ箱）アイコンも、専用の危険色ではなく
-   他のアイコンと同じプレーンな色で表示する（旧.icon-btn.dangerは廃止） */
+   他のアイコンと同じプレーンな色で表示する */
 .icon-btn {
   border: none;
   background: none;
@@ -201,7 +199,7 @@ h1 { font-size: 1.1rem; }
   padding: 8px 10px;
   font-size: 0.85rem;
   white-space: nowrap;
-  /* CR-027（NFR-5.2）：アイコンのみのボタンでも指で押しやすいよう、タップ領域を44px以上確保する */
+  /* NFR-5.2：アイコンのみのボタンでも指で押しやすいよう、タップ領域を44px以上確保する */
   min-width: 44px;
   min-height: 44px;
   display: inline-flex;
@@ -209,8 +207,8 @@ h1 { font-size: 1.1rem; }
   justify-content: center;
 }
 .icon-btn:disabled { opacity: 0.5; }
-/* CR-043/047/049：保存・チェック系のアイコンのみボタンは、背景を塗らずアクセントカラーの
-   文字色だけで強調する（旧.icon-btn.edit-save-btnの塗りつぶし背景から変更） */
+/* 保存・チェック系のアイコンのみボタンは、背景を塗らずアクセントカラーの
+   文字色だけで強調する */
 .icon-btn.confirm-icon-btn { color: var(--accent); }
 
 .track-item .artwork-sm,
@@ -224,17 +222,17 @@ h1 { font-size: 1.1rem; }
   flex-shrink: 0;
 }
 
-/* --- フェーズ21（CR-035）：詳細画面の右上に名前変更・削除ボタンを配置 --- */
+/* --- 詳細画面の右上に名前変更・削除ボタンを配置 --- */
 .detail-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-/* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
+/* アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を8px→12pxに広げる（NFR-5.7） */
 .detail-topbar-actions { display: flex; gap: 0; }
 
-/* --- フェーズ21（CR-034）：Apple Music風のヘッダー（大きめジャケット・名前・ピル型再生ボタン） --- */
+/* --- Apple Music風のヘッダー（大きめジャケット・名前・ピル型再生ボタン） --- */
 .hero {
   display: flex;
   flex-direction: column;
@@ -257,13 +255,13 @@ h1 { font-size: 1.1rem; }
   color: var(--muted);
 }
 .hero-artwork-placeholder svg { width: 64px; height: 64px; }
-/* フェーズ28（CR-047）：追加先選択・追加先常時表示の小さいジャケット枠でプレースホルダーを
+/* 追加先選択・追加先常時表示の小さいジャケット枠でプレースホルダーを
    流用する場合は、アイコンも小さいサイズに収める */
 .artwork-sm.hero-artwork-placeholder svg { width: 20px; height: 20px; }
 .hero-name {
   margin: 0;
   font-size: 1.2rem;
-  /* フェーズ43：編集欄（.hero-name-input）と行の高さを揃え、編集に入っても下の要素が動かないようにする */
+  /* 編集欄（.hero-name-input）と行の高さを揃え、編集に入っても下の要素が動かないようにする */
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
@@ -285,21 +283,20 @@ h1 { font-size: 1.1rem; }
   font-size: 0.95rem;
   min-height: 44px;
 }
-/* フェーズ41：0曲などで再生できない場合は、再生ボタンも薄く表示して操作を無効にする */
+/* 0曲などで再生できない場合は、再生ボタンも薄く表示して操作を無効にする */
 .pill-play-btn:disabled { opacity: 0.5; }
-/* CR-034：シャッフルボタンは完全な円形にする */
-/* フェーズ29（CR-050、NFR-5.7の例外）：CR-049のアイコンボタン全体からのカード背景除去で
-   シャッフルボタンも巻き込まれてしまっていたため、このボタンだけカード背景を復元する */
+/* シャッフルボタンは完全な円形にする。
+   アイコンボタンは背景のカードを持たない（NFR-5.7）が、ON/OFFのトグルボタンのため、
+   このボタンだけはカード背景を付ける（NFR-5.7の例外） */
 .shuffle-btn {
   border-radius: 50%;
   background: var(--btn-bg);
 }
 
-/* --- フェーズ23（CR-037）：プレイリスト詳細の編集モード ---
-   フェーズ28（CR-049）：名前編集欄は、背景・枠線のボックス表示をやめ、通常時の見出し（h1）と
-   同じプレーンな見た目にする */
+/* --- プレイリスト詳細の編集モード ---
+   名前編集欄は、背景・枠線のボックス表示をせず、通常時の見出し（h1）と同じプレーンな見た目にする */
 .hero-name-input {
-  /* フェーズ45：名前の編集欄は<input>ではなく、通常時と同じ見出し（.hero-name、h1）を直接編集できるようにして
+  /* 名前の編集欄は<input>ではなく、通常時と同じ見出し（.hero-name、h1）を直接編集できるようにして
      いる（contenteditable）。フォント・行の高さ・折り返しが通常時と完全に同じになるため、編集に入っても
      名前の位置・名前より下の位置が端末のフォントによらず変わらない。枠は幅に影響しないoutlineで表現する */
   width: 100%;
@@ -312,27 +309,27 @@ h1 { font-size: 1.1rem; }
   -webkit-user-select: text;
   user-select: text;
 }
-/* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
+/* フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
    アクセントカラーの枠線に差し替える */
 .hero-name-input:focus {
   outline: 1px solid var(--accent);
   outline-offset: 4px;
   border-radius: 8px;
 }
-/* フェーズ28（CR-044）：編集モード中は、ヒーロー画像自体がタップ可能な画像選択ボタンになる。
+/* 編集モード中は、ヒーロー画像自体がタップ可能な画像選択ボタンになる。
    ボタンの既定のスタイル（枠線・背景・パディング）を打ち消し、画像だけが見える状態にする */
 .hero-image-picker-btn {
   border: none;
   background: none;
   padding: 0;
   cursor: pointer;
-  /* フェーズ43：ボタン内の画像が文字行の下端（ディセンダー）の分だけ下に余白を作らないようにする */
+  /* ボタン内の画像が文字行の下端（ディセンダー）の分だけ下に余白を作らないようにする */
   display: block;
   line-height: 0;
 }
 .hero-image-picker-btn img.hero-artwork { display: block; }
 .hero-image-picker-btn { position: relative; }
-/* フェーズ44：編集モードでは、ジャケット（またはその仮画像）の中央にカメラアイコンを重ねて、画像を変更できることを示す */
+/* 編集モードでは、ジャケット（またはその仮画像）の中央にカメラアイコンを重ねて、画像を変更できることを示す */
 .hero-camera-badge {
   position: absolute;
   top: 50%;
@@ -353,9 +350,8 @@ h1 { font-size: 1.1rem; }
    灰色の枠だけにしてカメラアイコンを見せる（作成シートの画像選択欄と同じ見え方） */
 .hero-image-picker-btn .hero-artwork-placeholder svg { visibility: hidden; }
 
-/* --- フェーズ23：検索結果の＋トグルボタン・編集モードのマイナスボタン。
-   小さめの丸ボタンとし、行の右端に配置する（フェーズ28／CR-048で行の意匠がカードから
-   横線区切りに変わったが、ボタン自体の丸い塗りつぶし背景は変更しない） --- */
+/* --- 検索結果の＋トグルボタン・編集モードのマイナスボタン。
+   小さめの丸ボタンとし、行の右端に配置する（ボタン自体は丸い塗りつぶし背景を持つ） --- */
 .toggle-add-btn {
   flex-shrink: 0;
   width: 28px;
@@ -367,35 +363,29 @@ h1 { font-size: 1.1rem; }
   justify-content: center;
   background: var(--btn-bg);
   color: var(--fg);
-  transition: opacity 0.28s ease; /* フェーズ37（CR-073）：取り消し後のフェードイン */
+  transition: opacity 0.28s ease; /* 取り消し後のフェードイン */
 }
-/* フェーズ24（CR-039）：選択済みのときは背景を赤く塗る方式をやめ、＋の文字色だけをアクセント
-   カラー（青）に変える方式にした（背景はis-selectedでも変化しない） */
-.toggle-add-btn.is-selected {
-  color: var(--accent);
-}
-/* フェーズ24（CR-041）：プレイリスト編集モードのマイナスボタンは、既存の削除系アイコン
+/* プレイリスト編集モードのマイナスボタンは、既存の削除系アイコン
    （var(--danger)、ややくすんだ赤）より彩度の高い、鮮やかな赤を専用に用いる */
 .track-remove-btn {
   background: #ff3b30;
   color: #fff;
 }
-/* フェーズ41：編集モードのマイナスボタンを小さくして右端に置く（28px→20px）。行の高さは
+/* 編集モードのマイナスボタンを小さくして右端に置く（28px→20px）。行の高さは
    ジャケット（44px）で決まるため、通常画面の曲の行と同じ高さのままになる */
 .track-item .track-remove-btn { width: 20px; height: 20px; padding: 0; }
 .track-item .track-remove-btn svg { width: 12px; height: 12px; }
-/* フェーズ45：編集モードで曲を削除したときは、行をフェードアウトさせてから取り除く（時間はJSのTRACK_FADE_MSと揃える） */
+/* 編集モードで曲を削除したときは、行をフェードアウトさせてから取り除く（時間はJSのTRACK_FADE_MSと揃える） */
 .track-item { transition: opacity 0.28s ease; }
 .track-item.removing { opacity: 0; pointer-events: none; }
-/* フェーズ41：編集モード中も、シャッフル・再生ボタンの場所を残して曲一覧の位置が上下にずれないようにする
+/* 編集モード中も、シャッフル・再生ボタンの場所を残して曲一覧の位置が上下にずれないようにする
    （薄く表示して操作できない状態にする） */
 .hero-actions.is-disabled { opacity: 0.35; pointer-events: none; }
 
-/* --- フェーズ5：確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） ---
-   CR-069：画面中央へのフェード表示ではなく、画面下端からスライドして現れる／消える
-   アニメーションに統一する（.dialog-overlay/.dialog-boxを共有する追加先選択モーダル
-   （playlist-picker-dialog.js）等、全てのポップアップに適用される。openOverlay/closeOverlayで
-   .openクラスの付与・削除を行う） */
+/* --- 確認・入力ダイアログ（ブラウザ標準confirm/promptの代わり） ---
+   画面下端からスライドして現れる／消えるアニメーションで表示する（NFR-5.10。
+   .dialog-overlay/.dialog-boxを共有する追加先選択モーダル（playlist-picker-dialog.js）等、
+   全てのポップアップに適用される。openOverlay/closeOverlayで.openクラスの付与・削除を行う） */
 .dialog-overlay {
   position: fixed;
   inset: 0;
@@ -431,7 +421,7 @@ h1 { font-size: 1.1rem; }
   font-size: 1.05rem;
   margin: 0 0 8px;
 }
-/* フェーズ39（CR-061、復活）：追加先選択モーダル右上の＋ボタン（プレイリスト作成画面へ遷移） */
+/* 追加先選択モーダル右上の＋ボタン（プレイリスト作成画面へ遷移） */
 .dialog-title-row {
   display: flex;
   align-items: center;
@@ -440,14 +430,14 @@ h1 { font-size: 1.1rem; }
   margin: 0 0 8px;
 }
 .dialog-title-row .dialog-title { margin: 0; }
-/* フェーズ41：＋ボタンはアクセントの青ではなく、他のアイコンと同じ文字色（ダーク＝白）にする */
+/* ＋ボタンはアクセントの青ではなく、他のアイコンと同じ文字色（ダーク＝白）にする */
 .picker-create-btn { color: var(--fg); flex-shrink: 0; }
 .dialog-message {
   font-size: 0.9rem;
   color: var(--muted);
   margin: 0 0 16px;
   line-height: 1.5;
-  /* フェーズ29（CR-052）：メッセージ中の\nを視覚的な改行として反映する */
+  /* メッセージ中の\nを視覚的な改行として反映する */
   white-space: pre-line;
 }
 .dialog-actions {
@@ -464,28 +454,17 @@ h1 { font-size: 1.1rem; }
 }
 .dialog-cancel { background: var(--btn-bg); color: var(--fg); }
 .dialog-confirm { background: var(--accent); color: var(--accent-fg); }
-/* フェーズ29（CR-052）：削除ボタンは--danger（薄い赤）ではなく、より鮮やかな赤にする。
+/* 削除ボタンは--danger（薄い赤）ではなく、より鮮やかな赤にする。
    --danger自体（他画面の警告色）は変更しない */
 .dialog-confirm.danger { background: #ff3b30; color: #fff; }
 .dialog-confirm:disabled { opacity: 0.4; }
 .picker-list { max-height: 50vh; overflow-y: auto; margin-bottom: 12px; }
-/* CR-074：プレイリストが無い状態の＋タップから開く、その場で作成するダイアログの名前入力欄。
+/* プレイリストが無い状態の＋タップから開く、その場で作成するダイアログの名前入力欄。
    .create-name-input自体は他画面（プレイリスト作成画面）と共通だが、ここでは入力欄の下に
    ボタン列との間隔が必要なため、このダイアログに限って余白を加える */
 .dialog-box .create-name-input { margin-bottom: 16px; }
 
-/* --- フェーズ5・11：アイコン＋テキストラベル（FR-5.3） --- */
-.icon-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  pointer-events: none;
-}
-.icon-label svg { flex-shrink: 0; }
-.icon-label-text { font-size: 0.85rem; }
-
-/* --- CR-011：アイコンのみ（テキストラベルなし） --- */
+/* --- アイコンのみ（テキストラベルなし） --- */
 .icon-only {
   display: inline-flex;
   align-items: center;
@@ -494,9 +473,9 @@ h1 { font-size: 1.1rem; }
 }
 .icon-only svg { flex-shrink: 0; }
 
-/* フェーズ40：ミニプレイヤーとタブバーを重なりなく積み重ねるため、両者をまとめて1つの
-   固定表示グループ（#bottom-bar）にする。タブバーの実際の高さに依存した固定値での位置指定
-   （旧#mini-player{bottom:52px}）をやめ、どちらも通常のフローで縦に並べるだけにする */
+/* ミニプレイヤーとタブバーを重なりなく積み重ねるため、両者をまとめて1つの
+   固定表示グループ（#bottom-bar）にする。タブバーの実際の高さに依存した固定値での位置指定はせず、
+   どちらも通常のフローで縦に並べるだけにする */
 #bottom-bar {
   position: fixed;
   left: 0;
@@ -509,23 +488,23 @@ h1 { font-size: 1.1rem; }
   z-index: 500;
 }
 
-/* --- フェーズ7：画面全体のタブバー（FR-6.1） --- */
+/* --- 画面全体のタブバー（FR-6.1） --- */
 .tab-bar {
   display: flex;
   background: var(--card);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
 }
-/* フェーズ41：起動直後、タブバーの中身がJSで描画されるまでの間も、タブバーの領域（背景・上の線）を
+/* 起動直後、タブバーの中身がJSで描画されるまでの間も、タブバーの領域（背景・上の線）を
    最初から確保しておく。後から突然現れて画面下部の見た目が変わる（ちらつく）のを防ぐ */
 #tab-bar:empty {
   min-height: calc(60px + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid var(--border);
 }
-/* フェーズ41：タブをタップしたときのブラウザ既定のハイライト（青っぽい四角）を出さない */
+/* タブをタップしたときのブラウザ既定のハイライト（青っぽい四角）を出さない */
 .tab-bar .tab-btn { -webkit-tap-highlight-color: transparent; }
-/* フェーズ37（CR-072）：アイコンをラベルの上に縦に並べる。アイコン自体はカード等の背景を
+/* アイコンをラベルの上に縦に並べる。アイコン自体はカード等の背景を
    持たず単体で表示する（NFR-5.7のアイコン単体表示の方針に合わせる） */
 .tab-bar .tab-btn {
   flex: 1;
@@ -540,11 +519,11 @@ h1 { font-size: 1.1rem; }
   gap: 2px;
 }
 .tab-bar .tab-btn.active { color: var(--accent); font-weight: 600; }
-/* フェーズ37（再修正2）：2つのタブのアイコンの見た目の大きさが揃うよう、各アイコン自体の
+/* 2つのタブのアイコンの見た目の大きさが揃うよう、各アイコン自体の
    width/height属性によらず、表示サイズを固定する（プレイリストタブ・検索タブでラベルまでの
    高さを一致させる） */
 .tab-bar .tab-btn .icon-only svg { width: 24px; height: 24px; }
-/* フェーズ41（CR-072再修正6）：プレイリストタブの外枠・影は、検索タブなど他のアイコンと同じく
+/* プレイリストタブの外枠・影は、検索タブなど他のアイコンと同じく
    currentColorに追従させる（非選択＝var(--muted)の薄いグレー／選択中＝var(--accent)の青）。
    各層の間には、タブバーの背景色（--card）の細い区切り線を入れて、層の境目を分かりやすくする。
    2連符自体は--tab-icon-note-color（ダーク＝黒固定／ライト＝白固定）で塗る */
@@ -553,7 +532,7 @@ h1 { font-size: 1.1rem; }
 .tab-bar .tab-btn .tab-icon-peek1 { fill: currentColor; opacity: 0.75; stroke: var(--card); stroke-width: 0.9; }
 .tab-bar .tab-btn .tab-icon-peek2 { fill: currentColor; opacity: 0.5; }
 
-/* --- フェーズ8：常時表示のミニプレイヤー（FR-4.16, FR-4.17） --- */
+/* --- 常時表示のミニプレイヤー（FR-4.16, FR-4.17） --- */
 #mini-player {
   display: none;
   align-items: center;
@@ -575,22 +554,20 @@ h1 { font-size: 1.1rem; }
   text-align: left;
   padding: 0;
 }
-/* フェーズ28（CR-049）：アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
+/* アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を4px→10pxに広げる（NFR-5.7） */
 .mini-player-controls { display: flex; gap: 10px; flex-shrink: 0; }
-/* フェーズ29（CR-051、NFR-5.8）：再生／一時停止・次へのアイコンをひと回り大きくする。
+/* 再生／一時停止・次へのアイコンをひと回り大きくする。
    タップ領域（.icon-btnのmin-width/min-height、NFR-5.2）は変更しない。
-   CR-068：「前へ」ボタンを廃止したことで.mini-player-controlsの幅が縮み、
-   .mini-player-tap（flex: 1）側の曲名・アーティスト名の表示幅が自動的に広がる */
+   .mini-player-controlsの幅が小さいため、.mini-player-tap（flex: 1）側の曲名・アーティスト名の
+   表示幅を広く取れる */
 .mini-player-controls .icon-only svg { width: 26px; height: 26px; }
 
-/* --- フェーズ16（CR-017）：画面共通の見出し行。検索結果では右側に追加先プレイリストの
-   常時表示（フェーズ28／CR-047、FR-1.19）を置く。min-heightで高さを揃え、プレイリスト
-   一覧画面（フェーズ22で同じクラスを適用）と検索画面とで、直下の入力欄の表示位置が
-   ずれないようにする。フェーズ39（再修正3）：追加先カード（.dest-header）が「追加先」
-   ラベル分の余白を持つため実高さ48pxになっており、44pxのままでは検索タブ側だけ本文の
-   開始位置が下がっていた。検索タブを縮めるのではなく、min-heightを48pxに引き上げて
-   全画面の見出しをこちらに揃える --- */
+/* --- 画面共通の見出し行。検索結果では右側に追加先プレイリストの
+   常時表示（FR-1.19）を置く。min-heightで高さを揃え、プレイリスト一覧画面（同じクラスを適用）と
+   検索画面とで、直下の入力欄の表示位置がずれないようにする。追加先カード（.dest-header）は
+   「追加先」ラベル分の余白を持つため実高さが48pxになるので、min-heightを48pxにして、
+   全画面の見出しをこちらに揃える（NFR-5.4） --- */
 .screen-header {
   display: flex;
   align-items: center;
@@ -600,7 +577,7 @@ h1 { font-size: 1.1rem; }
 }
 .screen-header h1 { margin: 0; }
 
-/* --- フェーズ16（CR-026）：検索結果行の種別アイコン（曲／アーティスト／アルバム） --- */
+/* --- 検索結果行の種別アイコン（曲／アーティスト／アルバム） --- */
 .result-type-icon {
   display: inline-flex;
   align-items: center;
@@ -609,15 +586,14 @@ h1 { font-size: 1.1rem; }
   flex-shrink: 0;
 }
 
-/* フェーズ24（CR-040）：追加先を選ぶ一覧のプレイリスト名は、曲数表示より少し大きくして読みやすくする */
+/* 追加先を選ぶ一覧のプレイリスト名は、曲数表示より少し大きくして読みやすくする */
 .playlist-picker-item .item-name {
   font-size: 1.05rem;
 }
 
-/* フェーズ23（実機確認フィードバック）：前回追加したプレイリストに付ける小さな案内ラベルは、
+/* 前回追加したプレイリストに付ける小さな案内ラベルは、
    一覧の並び順は変えず、行の右端に表示する（.item-mainがflex:1のため自然に右端へ寄る）。
-   フェーズ28（CR-047）：検索結果の「追加済」バッジ（FR-1.20）も、同じ見た目（青いアウトラインの
-   ピル型）を流用する */
+   検索結果の「追加済」バッジ（FR-1.20）も、同じ見た目（青いアウトラインのピル型）を流用する */
 .picker-last-used-badge,
 .added-badge {
   display: inline-block;
@@ -631,20 +607,19 @@ h1 { font-size: 1.1rem; }
   white-space: nowrap;
 }
 
-/* フェーズ28（CR-047）：＋ボタンをタップした瞬間、チェックアイコンへ余韻を残しながら変化させる */
+/* ＋ボタンをタップした瞬間、チェックアイコンへ余韻を残しながら変化させる */
 .toggle-add-btn.add-btn-confirmed {
   color: var(--accent);
   transform: scale(1.15);
   transition: color 0.4s ease, transform 0.3s ease;
 }
-/* フェーズ37（CR-073）：取り消し可能な状態の、＋ボタンへのフェードイン（×タップ後に差し替わった
+/* 取り消し可能な状態の、＋ボタンへのフェードイン（×タップ後に差し替わった
    直後はopacity:0から始め、次のフレームでこのクラスを外してフェードインさせる） */
 .toggle-add-btn.fading-in { opacity: 0; }
 
-/* フェーズ37（CR-073）：その場で追加した曲の、取り消し可能な表示。CR-056の「追加済×」の
-   ピル型チップから、チェックアイコン（直線のみ。.toggle-add-btn.add-btn-confirmedと同じ意匠）の
-   右上に小さい×バッジを重ねる表示に変更した。×バッジのみがタップ対象（取り消し操作）で、
-   チェックアイコン自体はタップしても何も起きない */
+/* その場で追加した曲の、取り消し可能な表示（FR-1.21）。チェックアイコン（直線のみ。
+   .toggle-add-btn.add-btn-confirmedと同じ意匠）の右上に、小さい取り消しバッジを重ねる。
+   取り消しバッジのみがタップ対象（取り消し操作）で、チェックアイコン自体はタップしても何も起きない */
 .added-check-wrap {
   position: relative;
   width: 28px;
@@ -656,7 +631,7 @@ h1 { font-size: 1.1rem; }
   transition: opacity 0.28s ease;
 }
 .added-check-wrap.fading-out { opacity: 0; }
-/* フェーズ37（再修正）：丸い背景（カード）を廃止し、アイコン単体のフラット表示にした */
+/* チェックアイコンは丸い背景（カード）を持たず、アイコン単体のフラット表示にする */
 .added-check-icon {
   width: 28px;
   height: 28px;
@@ -681,7 +656,7 @@ h1 { font-size: 1.1rem; }
   justify-content: center;
 }
 .added-undo-x svg { width: 10px; height: 10px; }
-/* フェーズ39（再修正3）：取り消しバッジをタップした瞬間、反時計回りに1周回転させてから
+/* 取り消しバッジをタップした瞬間、反時計回りに1周回転させてから
    （.added-check-wrap.fading-outへの切り替えまでの間、一呼吸おく）フェードアウトする */
 .added-undo-x.spin-once { animation: undo-x-spin 0.5s linear; }
 @keyframes undo-x-spin {
@@ -689,9 +664,8 @@ h1 { font-size: 1.1rem; }
   to { transform: rotate(-360deg); }
 }
 
-/* フェーズ37（再修正2）：これが追加先であることを示す小さなラベル。カード内の1行に収める
-   配置（前回修正）から、カードの右上に絶対配置する方式に変更した（.dest-header側に
-   position: relativeを与え、そのpadding-topで場所を確保する） */
+/* これが追加先であることを示す小さなラベル。カードの右上に絶対配置する
+   （.dest-header側にposition: relativeを与え、そのpadding-topで場所を確保する） */
 .dest-header-label {
   position: absolute;
   top: 3px;
@@ -701,12 +675,10 @@ h1 { font-size: 1.1rem; }
   color: var(--muted);
   white-space: nowrap;
 }
-/* --- フェーズ28（CR-047）：検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19）。
-   フェーズ37（CR-060）：タップできることを視覚的に誘導するため、カード背景を付けた。
-   フェーズ37（再修正2）：「追加先」ラベルをカードの右上に絶対配置するため、position: relative
-   にしてpadding-topを広げた。CR-074により、プレイリストが1件も無い場合はこのカード自体を
-   表示しない（destinationHeaderHtmlが空文字を返す）ため、ガイド表示用の.dest-header-guideは
-   廃止した --- */
+/* --- 検索タブ右上の、現在の追加先プレイリストの常時表示（FR-1.19）。
+   タップできることを視覚的に誘導するため、カード背景を付ける。「追加先」ラベルをカードの右上に
+   絶対配置するため、position: relativeにしてpadding-topを広げている。プレイリストが1件も無い場合は
+   このカード自体を表示しない（destinationHeaderHtmlが空文字を返す） --- */
 .dest-header {
   position: relative;
   display: flex;
@@ -721,7 +693,7 @@ h1 { font-size: 1.1rem; }
   max-width: 55vw;
 }
 .dest-header .artwork-sm { width: 32px; height: 32px; }
-/* フェーズ39：横幅に収まらない場合は省略記号ではなく自動スクロール（.marquee）で見せるため、
+/* 横幅に収まらない場合は省略記号ではなく自動スクロール（.marquee）で見せるため、
    text-overflow: ellipsisは使わない */
 .dest-header-name {
   font-size: 0.85rem;
@@ -729,7 +701,7 @@ h1 { font-size: 1.1rem; }
   min-width: 0;
 }
 
-/* --- フェーズ39：曲名・プレイリスト名が横幅に収まらないとき、自動スクロールで見せる汎用の
+/* --- 曲名・プレイリスト名が横幅に収まらないとき、自動スクロールで見せる汎用の
    仕組み（ミニプレイヤーの曲名、検索タブ右上の追加先プレイリスト名）。収まる場合は静止表示の
    ままにする（js側でscrollWidth > clientWidthのときだけ.scrollingを付け、テキストを複製する） --- */
 .marquee {
@@ -739,17 +711,17 @@ h1 { font-size: 1.1rem; }
 }
 .marquee-track {
   display: inline-flex;
-  /* フェーズ42：幅は常にテキスト2つ分（コンテナの幅に縮めない）にして、translateX(-50%)がちょうど
+  /* 幅は常にテキスト2つ分（コンテナの幅に縮めない）にして、translateX(-50%)がちょうど
      テキスト1つ分の移動になるようにする */
   width: max-content;
   white-space: nowrap;
 }
 .marquee-track .marquee-text { flex-shrink: 0; }
-/* フェーズ44：スクロールの動き（1秒静止→流す→初期位置に戻して繰り返し）は、marquee.jsがWeb Animations APIで
+/* スクロールの動き（1秒静止→流す→初期位置に戻して繰り返し）は、marquee.jsがWeb Animations APIで
    組み立てて実行する（.scrollingは動作中の目印） */
 
-/* --- フェーズ28（CR-043）：プレイリスト作成画面（FR-2.17） --- */
-/* フェーズ41：プレイリスト作成画面は、画面下からスライドして現れるシート（.dialog-box共通の
+/* --- プレイリスト作成画面（FR-2.17） --- */
+/* プレイリスト作成画面は、画面下からスライドして現れるシート（.dialog-box共通の
    スライドアニメーション）として、ほぼ全画面の高さで表示する */
 .dialog-box.create-sheet {
   height: calc(100% - 36px);
@@ -798,7 +770,7 @@ h1 { font-size: 1.1rem; }
 .create-name-input {
   display: block;
   width: 100%;
-  /* フェーズ44：プレイリスト名は中央揃え（入力中・プレースホルダーとも） */
+  /* プレイリスト名は中央揃え（入力中・プレースホルダーとも） */
   text-align: center;
   padding: 10px 12px;
   border-radius: 8px;
@@ -807,18 +779,18 @@ h1 { font-size: 1.1rem; }
   color: var(--fg);
   font-size: 1rem;
 }
-/* フェーズ37（CR-070）：フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
+/* フォーカス時にブラウザ既定の白いアウトラインが表示されるのをやめ、
    アクセントカラーの枠線に差し替える */
 .create-name-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-/* --- フェーズ10・CR-012：アルバムの全曲一時再生（FR-1.11） --- */
+/* --- アルバムの全曲一時再生（FR-1.11） --- */
 .shuffle-btn.active { background: var(--accent); color: var(--accent-fg); }
 
-/* --- CR-013：段階検索の簡易曲一覧（アルバム情報欄自体はフェーズ21でheroレイアウトに統合） --- */
-/* CR-067：番号を左寄せにし、曲名との間隔を広げる（1.8em右寄せ→1.4em左寄せ、gap 8px→14px） */
+/* --- アルバム収録曲の簡易曲一覧 --- */
+/* 番号は左寄せにし、曲名との間隔を広めに取る（NFR-5.9） */
 .track-item-compact .track-number {
   color: var(--muted);
   min-width: 1.4em;
@@ -826,18 +798,14 @@ h1 { font-size: 1.1rem; }
   margin-left: 2px;
   flex-shrink: 0;
 }
-/* フェーズ22（仕様見直し）で、ジャケットが無く行が低くなっていたため高さを揃えようとしたが、
-   フェーズ23の＋ボタン導入に伴う行の再構成でmin-height指定が過大（64px）になり、
-   ジャケット付きの行より高くなってしまっていた（CR-042）。
-   ジャケット画像1個分（44px）を置いたと仮定した高さを確保することで、他の曲一覧と同じ高さに
-   揃えていたが、フェーズ37（CR-071）でアルバム収録曲一覧だけは意図的にやや低くする例外を
-   設け、56px→44px（合計72px→60px）に詰めた。gap: 14pxはCR-067（番号と曲名の間隔拡大） */
+/* アルバム収録曲一覧の行は、ジャケット付きの他の曲一覧（行全体72px）より意図的にやや低く、
+   内容エリア44px（行全体60px）とする（FR-1.15）。gap: 14pxは番号と曲名の間隔（NFR-5.9） */
 .track-item-compact .track-play {
   min-height: 44px;
   gap: 14px;
 }
 
-/* --- フェーズ16（CR-018）：続きがあることを示す、視認できる下矢印のガイド表示 --- */
+/* --- 続きがあることを示す、視認できる下矢印のガイド表示 --- */
 .load-more-indicator {
   display: flex;
   justify-content: center;
@@ -845,5 +813,5 @@ h1 { font-size: 1.1rem; }
   color: var(--muted);
 }
 
-/* --- フェーズ16（CR-019）：タブ切替時に非表示にするだけで、DOMは破棄しないパネル --- */
+/* --- タブ切替時に非表示にするだけで、DOMは破棄しないパネル --- */
 .tab-pane-hidden { display: none; }

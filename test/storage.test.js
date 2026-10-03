@@ -48,7 +48,7 @@ test('deletePlaylist: 削除したプレイリストは取得できなくなる 
   assert.equal(after, undefined);
 });
 
-test('savePlaylist → getPlaylist: 画像（Blob）付きプレイリストも保存・読込できる (CR-043)', async () => {
+test('savePlaylist → getPlaylist: 画像（Blob）付きプレイリストも保存・読込できる', async () => {
   const blob = new Blob(['fake-image-bytes'], { type: 'image/jpeg' });
   const m = createPlaylist('画像付き', blob);
   await savePlaylist(m);
@@ -68,9 +68,9 @@ test('savePlaylist: 曲の順序を保ったまま保存・読込できる', asy
   assert.deepEqual(loaded.trackIds, ['c', 'a', 'b']);
 });
 
-test('旧バージョン（ストア名: medleys）に保存済みのデータは、呼称変更後も消えずに引き継がれる (CR-009)', async () => {
-  // CR-009（「メドレー」→「プレイリスト」統一）で、IndexedDBのストア名も medleys → playlists に
-  // 変更したため、実機で既に保存されていたデータが消えないことを確認する。
+test('旧バージョン（ストア名: medleys）に保存済みのデータは、呼称変更後も消えずに引き継がれる', async () => {
+  // IndexedDBのストア名を medleys → playlists に変更しているため、旧版で既に保存されていた
+  // データが消えないことを確認する（NFR-3.5）。
   fakeIndexedDB._reset();
   // v1（呼称変更前）の状態を模して、ストア名 medleys にデータを直接仕込んでおく
   const legacyOpenReq = fakeIndexedDB.open('digest-playlist', 1);

@@ -4,7 +4,7 @@ import { buildLookupUrl, parseLookupResponse } from '../js/track-api.js';
 
 // 通信そのもの（fetch）はUnitテストの対象外とし、URLの組み立てとレスポンス解釈のみを検証する。
 
-test('buildLookupUrl: 複数IDをカンマ区切りで、日本のストアフロント指定で組み立てる (2-4)', () => {
+test('buildLookupUrl: 複数IDをカンマ区切りで、日本のストアフロント指定で組み立てる (FR-1.3)', () => {
   const url = buildLookupUrl(['111', '222']);
   assert.match(url, /^https:\/\/itunes\.apple\.com\/lookup\?id=111%2C222&country=jp$/);
 });
@@ -32,7 +32,7 @@ test('parseLookupResponse: 返ってこなかったIDはunavailableIdsに入る 
   assert.deepEqual(unavailableIds, ['999']);
 });
 
-test('parseLookupResponse: 試聴音源(previewUrl)が無い結果は取得できなかった扱いにする (2-5)', () => {
+test('parseLookupResponse: 試聴音源(previewUrl)が無い結果は取得できなかった扱いにする (FR-1.4)', () => {
   const json = {
     results: [
       { wrapperType: 'track', trackId: 111, trackName: '曲A', artistName: 'アーティストA', artworkUrl100: 'a.jpg', previewUrl: null },
@@ -55,7 +55,7 @@ test('parseLookupResponse: 一部だけ取得できた場合、要求した順�
   assert.deepEqual(unavailableIds, ['111', '333']);
 });
 
-test('parseLookupResponse: album（collectionName）・trackNumberを保持する (CR-064)', () => {
+test('parseLookupResponse: album（collectionName）・trackNumberを保持する', () => {
   const json = {
     results: [
       {
@@ -69,7 +69,7 @@ test('parseLookupResponse: album（collectionName）・trackNumberを保持す�
   assert.equal(available[0].trackNumber, 3);
 });
 
-test('parseLookupResponse: collectionName・trackNumberが無い場合は空文字・nullになる (CR-064)', () => {
+test('parseLookupResponse: collectionName・trackNumberが無い場合は空文字・nullになる', () => {
   const json = {
     results: [
       { wrapperType: 'track', trackId: 111, trackName: '曲A', artistName: 'アーティストA', artworkUrl100: 'a.jpg', previewUrl: 'a.m4a' },

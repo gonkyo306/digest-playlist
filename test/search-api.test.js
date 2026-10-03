@@ -3,9 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildSearchUrl,
   filterPreviewableTracks,
-  isEmptyResult,
   formatTrackForDisplay,
-  matchesFreewordTerm,
 } from '../js/search-api.js';
 
 test('buildSearchUrl: キーワード・日本のストアフロント・music/songが正しく組み立てられる (FR-1.1, FR-1.3)', () => {
@@ -42,12 +40,6 @@ test('filterPreviewableTracks: 曲以外（アーティスト等）の結果も�
   const filtered = filterPreviewableTracks(results);
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].trackId, 2);
-});
-
-test('isEmptyResult: 該当なしの場合はtrue、1件以上あればfalse (FR-1.7)', () => {
-  assert.equal(isEmptyResult([]), true);
-  assert.equal(isEmptyResult(undefined), true);
-  assert.equal(isEmptyResult([{ id: 1 }]), false);
 });
 
 test('formatTrackForDisplay: 表示用データの各フィールドが揃う (FR-1.2)', () => {
@@ -93,24 +85,3 @@ test('buildSearchUrl: offsetを省略すると0になる', () => {
   assert.equal(new URL(url).searchParams.get('offset'), '0');
 });
 
-test('matchesFreewordTerm: 曲名・アーティスト名・アルバム名のいずれかに一致すればtrue (FR-1.1, CR-001)', () => {
-  const track = { title: '夜に駆ける', artist: 'YOASOBI', album: 'THE BOOK' };
-  assert.equal(matchesFreewordTerm(track, '夜に駆ける'), true);
-  assert.equal(matchesFreewordTerm(track, 'YOASOBI'), true);
-  assert.equal(matchesFreewordTerm(track, 'THE BOOK'), true);
-});
-
-test('matchesFreewordTerm: 大文字小文字を区別しない', () => {
-  const track = { title: 'Title', artist: 'Artist', album: 'yoasobi album' };
-  assert.equal(matchesFreewordTerm(track, 'yoasobi'), true);
-});
-
-test('matchesFreewordTerm: どのフィールドにも一致しなければfalse', () => {
-  const track = { title: 'A', artist: 'B', album: 'C' };
-  assert.equal(matchesFreewordTerm(track, 'ZZZ'), false);
-});
-
-test('matchesFreewordTerm: キーワードが空文字なら常にtrue', () => {
-  const track = { title: 'A', artist: 'B', album: 'C' };
-  assert.equal(matchesFreewordTerm(track, ''), true);
-});

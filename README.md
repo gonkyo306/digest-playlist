@@ -13,17 +13,26 @@
 
 ## フォルダ構成
 - `index.html` / `css/` / `js/` / `manifest.json` / `sw.js` / `icons/` … PWA本体（`js/views/` に各画面）
-- `test/` … Unitテスト（Node.js標準のテストランナー）
-- `verify.html` / `js/verify.js` … 技術検証用のページ（アプリ本体からは使っていません）
+- `test/` … Unitテスト（`*.test.js`、Node.js標準のテストランナー）と、ブラウザ上での動作確認テスト（`test/e2e/`、Playwright）
+- `.github/workflows/test.yml` … GitHub Actions（テストの自動実行）
 - `docs/` … ドキュメント
   - `project-charter.md` … プロジェクト憲章（目的・利用者・制約）
   - `acceptance-criteria.md` … 受入基準（現在の仕様）
   - `acceptance-test-cases.md` … 受入テストケース一覧と実施状況
 
 ## 開発
-- テスト：`npm test`
+- Unitテスト：`npm test`
+- ブラウザ（E2E）テスト：`npm run test:e2e`（初回のみ `npm ci` のあと `npx playwright install chromium`）。リポジトリを静的サーバーで配信し、iTunes APIをモックして、実際のChromiumで画面の挙動（自動スクロール、編集モードの位置、曲の削除、作成・検索・追加など）を確認する。
 - ローカル確認：リポジトリのルートで静的サーバーを起動する（例：`python3 -m http.server 8123`）
-- **更新手順**：`main` ブランチに反映すると、GitHub Pages に数分で公開されます。**`sw.js` の `SHELL_FILES` に含まれるファイルを変更したときは、必ず `CACHE_NAME` の末尾の番号を増やしてください**（増やさないと、インストール済みの端末に古い画面が配信され続けます）。端末側は、アプリを開き直すと新しい版に切り替わります（切り替わらないときはもう一度開き直します）。
+
+### ブランチ運用
+- `main` に直接 push せず、作業ブランチを切ってプルリクエストを作り、テストが成功してから `main` にマージする（`main` へのプッシュ・`main` 宛てのプルリクエストで、GitHub Actions が Unitテストと E2E テストを実行する）。
+- `main` の保護（GitHub の Settings → Branches → Add branch ruleset）で、「Require a pull request before merging」と「Require status checks to pass（`test`）」を有効にすると、テストが通らない変更を `main` に入れられなくなる（任意。リポジトリの管理者が設定する）。
+
+### 更新手順
+- `main` に反映されると、GitHub Pages に数分で公開される。
+- **`sw.js` の `SHELL_FILES` に含まれるファイルを変更したときは、必ず `CACHE_NAME` の末尾の番号を増やすこと**（増やさないと、インストール済みの端末に古い画面が配信され続ける）。
+- 端末側は、アプリを開き直すと新しい版に切り替わる（切り替わらないときはもう一度開き直す）。
 
 ## 公開設定（初回のみ、GitHub上で手動設定）
 1. リポジトリの **Settings** → **Pages** を開く

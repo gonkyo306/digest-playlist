@@ -1,10 +1,9 @@
-// 最小限のキャッシュのみ。オフライン再生自体は対象外（1-3）。
+// 最小限のキャッシュのみ。オフライン再生自体は対象外（NFR-4.3）。
 // 重要：SHELL_FILESの中身を変更する（ファイルの追加に限らず、既存ファイルの更新時も）たびに、
 // 必ずCACHE_NAMEの末尾の番号を増やすこと。番号を変えないと、sw.js自体のバイト列が変わらないため
 // ブラウザが新しいService Workerの存在に気づかず、インストール済みの端末にはいつまでも古い
-// キャッシュ（index.html・css/style.css・js/*等）が配信され続けてしまう（フェーズ40で発覚。
-// フェーズ22（v11）以降、CACHE_NAMEが一度も更新されていなかった）
-const CACHE_NAME = 'digest-playlist-shell-v18';
+// キャッシュ（index.html・css/style.css・js/*等）が配信され続けてしまう
+const CACHE_NAME = 'digest-playlist-shell-v19';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',

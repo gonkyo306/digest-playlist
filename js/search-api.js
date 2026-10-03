@@ -1,4 +1,4 @@
-// フェーズ2：曲の検索
+// 曲の検索
 // iTunes Search API（https://itunes.apple.com/search?...）を使った曲名・アーティスト名検索。
 // URLの組み立て・結果の絞り込み・表示用整形（純粋な関数）と、実際の通信（fetch）を分けてあるので、
 // 純粋な部分だけをUnitテストで検証できる（track-api.jsと同じ方針）。
@@ -28,34 +28,11 @@ export function buildSearchUrl(term, country = 'jp', limit = 25, offset = 0) {
 }
 
 /**
- * フリーワード検索の一致判定：曲名・アーティスト名・アルバム名のいずれかに、
- * キーワードが含まれているかどうかを判定する（大文字小文字は区別しない）。
- * APIレスポンスをクライアント側でフィルタして、アルバム名も検索対象に含める（FR-1.1、CR-001）。
- * @param {{title: string, artist: string, album: string}} track formatTrackForDisplay後のデータ
- * @param {string} term
- */
-export function matchesFreewordTerm(track, term) {
-  const needle = (term || '').trim().toLowerCase();
-  if (!needle) return true;
-  return [track.title, track.artist, track.album].some(
-    (field) => (field || '').toLowerCase().includes(needle)
-  );
-}
-
-/**
  * 検索結果から、試聴音源(previewUrl)がない曲を除外する（FR-1.4）。
  * @param {Array<object>} results APIレスポンスのresults配列
  */
 export function filterPreviewableTracks(results) {
   return (results || []).filter((r) => r.wrapperType === 'track' && r.kind === 'song' && !!r.previewUrl);
-}
-
-/**
- * 検索結果が「該当なし」かどうかを判定する（FR-1.7）。
- * @param {Array<object>} tracks フィルタ後の曲一覧
- */
-export function isEmptyResult(tracks) {
-  return !tracks || tracks.length === 0;
 }
 
 /**
@@ -88,10 +65,8 @@ export async function fetchSearchResults(term, country = 'jp', offset = 0, limit
   if (!res.ok) throw new Error(`検索に失敗しました (status: ${res.status})`);
   const json = await res.json();
   const previewable = filterPreviewableTracks(json.results);
-  // 注意：ここでmatchesFreewordTermによる絞り込みは行わない。iTunes Search APIは
-  // termに対して既にサーバー側で関連性のある結果（アルバム名の一致を含む）を返してくるため、
-  // クライアント側で曲名・アーティスト名・アルバム名の部分一致を強制すると、APIが返した
-  // 正当な結果まで誤って除外してしまう（実機動作確認で確認済み）。matchesFreewordTermは、
-  // 表示側での強調表示など、絞り込み以外の用途のために残してある。
+  // 注意：クライアント側で曲名・アーティスト名・アルバム名の部分一致による絞り込みはしない。
+  // iTunes Search APIは、termに対して既にサーバー側で関連性のある結果（アルバム名の一致を含む）を
+  // 返してくるため、絞り込むと、APIが返した正当な結果まで誤って除外してしまう（FR-1.1）。
   return previewable.map(formatTrackForDisplay);
 }

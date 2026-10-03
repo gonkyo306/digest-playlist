@@ -1,24 +1,24 @@
-// フェーズ4：プレイリストの自動再生（本アプリの中心）
-// フェーズ0で検証済みのロジック（js/verify.js の CrossfadePlayer）を土台に、
+// プレイリストの自動再生（本アプリの中心）
 // 曲順決定（playback-order.js）・履歴（playback-history.js）・連続失敗判定（failure-tracker.js）を
 // それぞれ独立したモジュールに切り出し、Audio要素・AudioContextの生成を差し替え可能にすることで
-// Unitテストできる形に再設計したもの。
+// Unitテストできる形にしている。
 //
 // 対応基準:
 //   FR-4.2, FR-4.3（ランダム再生・一巡まで重複なし） → playback-order.js
-//   FR-4.4（CR-063：一巡したら自動停止する。再シャッフルして続けることはしない）
+//   FR-4.4（一巡したら自動停止する。再シャッフルして続けることはしない）
 //   FR-4.5, FR-4.6（自動再生・終了時に次の曲へ）
 //   FR-4.7（クロスフェード。crossfadeSeconds=0で無効化できる）
-//   FR-4.8, FR-4.9, FR-4.10（一時停止・再開・次へ/前へ、履歴先頭で「前へ」無効）
+//   FR-4.8, FR-4.9（一時停止・再開・次へ）
 //   FR-4.13（オフライン検知で一時停止、復帰で再開可能に）
 //   FR-4.14（0曲・1曲の扱い）
 //   FR-4.15（3曲連続失敗で停止） → failure-tracker.js
 //   FR-4.11（再生中の曲情報を表示に反映）→ onTrackChange コールバック
 //   FR-4.12（ロック画面/通知からの操作）→ Media Session APIのセットアップ
-//   FR-2.15, FR-2.16（プレイリスト詳細のシャッフルON/OFF切り替え。CR-038）→ options.shuffle
-//   フェーズ41：(1) 再生の開始待ち（audio.play()の完了前）の曲もcurrentTrack()が返し、曲を切り替えても
-//   ミニプレイヤーが一瞬消えないようにした。(2) 端末側の都合（他アプリの音声・通話・イヤホン切断等）で
-//   audio要素が止まった／音声のエラーが起きた／AudioContextが中断された場合も、再生状態の表示に反映する。
+//   FR-2.15, FR-2.16（プレイリスト詳細のシャッフルON/OFF切り替え）→ options.shuffle
+//   FR-4.16（曲の切り替え時にミニプレイヤーが消えない）→ 再生の開始待ち（audio.play()の完了前）の曲も
+//   currentTrack()が返す
+//   FR-4.8（端末側の都合の停止を表示に反映）→ 他アプリの音声・通話・イヤホン切断等でaudio要素が
+//   止まった／音声のエラーが起きた／AudioContextが中断された場合も、再生状態の表示に反映する
 
 import {
   buildInitialOrder, buildOrderStartingAt,
@@ -41,10 +41,10 @@ export class PlaylistPlayer {
    * @param {(playing: boolean) => void} [options.onPlayStateChange]
    * @param {() => void} [options.onFailureStop] 3曲連続失敗で停止したときに呼ばれる（FR-4.15）
    * @param {() => void} [options.onPlaybackComplete] 全曲を一巡して自動停止したときに呼ばれる
-   *   （CR-063、FR-4.4）。再シャッフルして再生を続けることはしない
+   *   （FR-4.4）。再シャッフルして再生を続けることはしない
    * @param {number} [options.failureThreshold]
    * @param {boolean} [options.shuffle] falseを指定すると、渡されたtracksの並び順のまま再生する
-   *   （シャッフルしない。CR-038、FR-2.16）。省略時はtrue（FR-4.2の「毎回ランダム」が既定）
+   *   （シャッフルしない。FR-2.16）。省略時はtrue（FR-4.2の「毎回ランダム」が既定）
    */
   constructor(tracks, options = {}) {
     this.tracks = tracks || [];
@@ -66,7 +66,7 @@ export class PlaylistPlayer {
     this.history = new PlaybackHistory();
     this.playing = false;
     this.stopped = false; // 連続失敗で停止した場合true（FR-4.15）
-    this.finished = false; // 全曲を一巡して自動停止した場合true（CR-063、FR-4.4）
+    this.finished = false; // 全曲を一巡して自動停止した場合true（FR-4.4）
     this._crossfadeTriggered = false;
     this._pausedByOffline = false;
     this._pausedByPreview = false;
@@ -82,7 +82,7 @@ export class PlaylistPlayer {
     return this.tracks.length === 0;
   }
 
-  /** 1曲のみかどうか。CR-063により、1曲のみの場合もその1回の再生後に自動停止する（繰り返さない） FR-4.14 */
+  /** 1曲のみかどうか。1曲のみの場合も、その1回の再生後に自動停止する（繰り返さない）。FR-4.14 */
   get isSingleTrack() {
     return this.tracks.length === 1;
   }
@@ -187,8 +187,8 @@ export class PlaylistPlayer {
   /**
    * 再生を開始する。0曲の場合は何もしない（FR-4.14）。
    * @param {number} [startTrackIndex] 指定すると、その曲（tracks配列でのインデックス）を1曲目にして
-   *   再生を始める（CR-032）。シャッフル有効なら2曲目以降は残りの曲をシャッフルした順、無効なら
-   *   tracksの並び順のまま指定した曲の次から順になる（CR-038）。省略時は先頭から始まる（従来通り）
+   *   再生を始める。シャッフル有効なら2曲目以降は残りの曲をシャッフルした順、無効なら
+   *   tracksの並び順のまま指定した曲の次から順になる。省略時は先頭から始まる（従来通り）
    */
   async start(startTrackIndex) {
     if (this.isEmpty) return;
@@ -246,7 +246,7 @@ export class PlaylistPlayer {
   _onTimeUpdate(audioEl) {
     if (!this.useCrossfade) return;
     if (audioEl !== this.active || this._crossfadeTriggered) return;
-    // CR-063：最後の曲はクロスフェードせず、自然に終わらせて一巡後に自動停止する
+    // 最後の曲はクロスフェードせず、自然に終わらせて一巡後に自動停止する
     if (this._nextOrderPos() === null) return;
     const remaining = audioEl.duration - audioEl.currentTime;
     if (Number.isFinite(remaining) && remaining <= this.crossfadeSeconds && remaining > 0) {
@@ -281,7 +281,7 @@ export class PlaylistPlayer {
 
   /**
    * 次に再生すべきorder配列中の位置を返す。最後の曲まで再生し終えた場合はnullを返す
-   * （CR-063：一巡したら自動停止し、再シャッフルして続けることはしない）
+   * （一巡したら自動停止し、再シャッフルして続けることはしない）
    */
   _nextOrderPos() {
     const next = this.pos + 1;
@@ -298,7 +298,7 @@ export class PlaylistPlayer {
     this._playAt(this.order[nextPos], { isFirst: true, fromHistory: false });
   }
 
-  /** 全曲を一巡し終えたときの自動停止処理（CR-063、FR-4.4） */
+  /** 全曲を一巡し終えたときの自動停止処理（FR-4.4） */
   _finishPlayback() {
     if (this.active) this.active.pause();
     if (this.standby) this.standby.pause();

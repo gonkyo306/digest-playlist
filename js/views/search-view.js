@@ -1,26 +1,24 @@
-// フェーズ7・9・16：検索タブ（FR-6.1）。
-// CR-017：フリーワード検索と段階検索を1本の検索に統合する。1回のキーワード検索で
-// 曲・アーティスト・アルバムをまとめて取得し、アーティスト行→アルバム一覧、
-// アルバム行→収録曲一覧へドリルダウンできる。「戻る」は1段階ずつ戻る。
-// CR-018：件数表示を削除し、続きがある合図は視認できる下矢印のガイド表示にする。
-// CR-019：この関数はapp.js側で1回だけ呼び出され、タブ切替ではDOMを再生成しない前提
+// 検索タブ（FR-6.1）。
+// 1回のキーワード検索で曲・アーティスト・アルバムをまとめて取得し、アーティスト行→アルバム一覧、
+// アルバム行→収録曲一覧へドリルダウンできる（FR-1.1, FR-1.9）。「戻る」は1段階ずつ戻る。
+// 件数は表示せず、続きがある合図は視認できる下矢印のガイド表示にする（FR-1.10）。
+// この関数はapp.js側で1回だけ呼び出され、タブ切替ではDOMを再生成しない前提
 // （検索結果・ドリルダウンの位置は、このモジュール内のクロージャ変数として保持され続ける）。
-// CR-020/023：試聴はミニプレイヤーに表示される（previewPlayer経由。app.js側で連携）。
-// CR-026：行の種別アイコン（曲／アーティスト／アルバム）はtrack-row.js側で付与する。
-// フェーズ28（CR-046）：検索ボタンを廃止し、入力を始めた時点で動的に検索する（300msデバウンス）。
-// フェーズ28（CR-047）：曲の複数選択→一括追加の方式を廃止。画面右上に、現在の追加先プレイリストを
-// ジャケット＋名前で常時表示し（FR-1.19）、＋ボタンのタップで即座にその曲を1曲だけ追加する
-// （FR-1.12）。この常時表示をタップすると、追加先を変更するモーダル（FR-2.4）が開く。
-// フェーズ32（CR-056）：画面が表示された時点で既に追加済みだった曲（FR-1.20、静的な「追加済」
-// バッジ）と、その場（今回の＋タップ）で追加した曲（FR-1.21、取り消し可能な×バッジ付きチェック
-// アイコン）を区別する。後者はこのモジュール内のjustAddedIds（クロージャ変数）で管理し、
-// CR-073：追加先プレイリストの変更・ドリルダウンでの画面遷移・タブの切り替えと復帰・
-// ポップアップ（追加先選択モーダル）を開いて戻ったときのいずれでもリセットし、「追加済」の
-// 確定表示にする。
-// フェーズ37（再修正2・CR-074）：プレイリストが1件も無い場合、右上の常時表示には何も出さず
-// （旧CR-054のガイド表示は廃止）、曲の＋ボタンは常に表示する。＋ボタンをタップした時点で
-// プレイリストが無ければ、その場で作成するダイアログ（showCreatePlaylistPrompt、dialog.js）を
-// 表示し、作成すると新しいプレイリストが追加先になり、タップした曲がそのまま追加される。
+// 試聴はミニプレイヤーに表示される（previewPlayer経由。app.js側で連携）。
+// 行の種別アイコン（曲／アーティスト／アルバム）はtrack-row.js側で付与する。
+// 検索ボタンは無く、入力を始めた時点で動的に検索する（300msデバウンス。FR-1.1）。
+// 画面右上に、現在の追加先プレイリストをジャケット＋名前で常時表示し（FR-1.19）、
+// ＋ボタンのタップで即座にその曲を1曲だけ追加する（FR-1.12）。この常時表示をタップすると、
+// 追加先を変更するモーダル（FR-2.4）が開く。
+// 画面が表示された時点で既に追加済みだった曲（FR-1.20、静的な「追加済」バッジ）と、
+// その場（今回の＋タップ）で追加した曲（FR-1.21、取り消しバッジ付きチェックアイコン）を区別する。
+// 後者はこのモジュール内のjustAddedIds（クロージャ変数）で管理し、追加先プレイリストの変更・
+// ドリルダウンでの画面遷移・タブの切り替えと復帰・ポップアップ（追加先選択モーダル）を開いて
+// 戻ったときのいずれでもリセットし、「追加済」の確定表示にする。
+// プレイリストが1件も無い場合、右上の常時表示には何も出さず、曲の＋ボタンは常に表示する。
+// ＋ボタンをタップした時点でプレイリストが無ければ、その場で作成するダイアログ
+// （showCreatePlaylistPrompt、dialog.js）を表示し、作成すると新しいプレイリストが追加先になり、
+// タップした曲がそのまま追加される（FR-1.23）。
 
 import {
   trackRowHtml, compactTrackRowHtml, artistRowHtml, albumRowHtml,
@@ -41,7 +39,7 @@ function escapeHtml(str) {
 
 const PAGE_SIZE_FIRST = 25;
 const PAGE_SIZE_MORE = 50;
-const SEARCH_DEBOUNCE_MS = 300; // CR-046：ネットワーク通信を伴う曲検索は、入力が止まってから実行する
+const SEARCH_DEBOUNCE_MS = 300; // ネットワーク通信を伴う曲検索は、入力が止まってから実行する
 
 function loadMoreIndicatorHtml() {
   return `<li class="load-more-indicator" aria-hidden="true">${iconOnly('more')}</li>`;
@@ -83,11 +81,11 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   let shuffleOn = false;
   let previousModeForTracks = 'results'; // 'albums'から来たか'results'から来たかを覚えておく（戻る先の判定用）
 
-  // --- CR-047：現在の追加先プレイリスト（FR-1.19）。検索タブが再マウントされるまで保持する ---
+  // --- 現在の追加先プレイリスト（FR-1.19）。検索タブが再マウントされるまで保持する ---
   let currentDestination = null; // { id, name, trackIds, artwork } | null（プレイリストが1件も無い場合）
   let destinationLoaded = false;
-  // フェーズ32（CR-056、FR-1.21）：その場（今回の＋タップ）で追加した曲のtrackId集合。
-  // CR-073：追加先プレイリストを変えたとき・ドリルダウンで画面が変わったとき・タブを
+  // その場（今回の＋タップ）で追加した曲のtrackId集合。
+  // 追加先プレイリストを変えたとき・ドリルダウンで画面が変わったとき・タブを
   // 切り替えて戻ってきたとき・ポップアップを開いて戻ってきたときのいずれでもリセットし、
   // 取り消し可能な表示を「追加済」の確定表示にする
   let justAddedIds = new Set();
@@ -114,9 +112,9 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     if (playlists.length === 0) {
       currentDestination = null;
     } else {
-      // フェーズ39：他のタブへ移動して戻ってきたときに、ピッカーで明示的に選んだ追加先が
-      // 「前回追加」したプレイリストへ勝手に戻ってしまう不具合を修正。既に選んでいた追加先が
-      // まだ存在するなら、それを最優先で再解決する（無ければ前回追加→一覧の先頭の順で選ぶ）
+      // 他のタブへ移動して戻ってきたときに、ピッカーで明示的に選んだ追加先が「前回追加」した
+      // プレイリストへ勝手に戻らないよう、既に選んでいた追加先がまだ存在するなら、それを最優先で
+      // 再解決する（無ければ前回追加→一覧の先頭の順で選ぶ）
       const preferredId = previousId || actions.onGetLastUsedPlaylistId();
       const chosen = playlists.find((p) => p.id === preferredId)
         || playlists.find((p) => p.id === actions.onGetLastUsedPlaylistId())
@@ -124,7 +122,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const artwork = await actions.onResolveArtwork(chosen);
       currentDestination = { ...chosen, artwork };
     }
-    // フェーズ32（FR-1.21）：追加先が変わったら「その場で追加した」記憶をリセットする
+    // 追加先が変わったら「その場で追加した」記憶をリセットする
     if ((currentDestination?.id ?? null) !== previousId) justAddedIds = new Set();
     destinationLoaded = true;
   }
@@ -140,7 +138,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   }
 
   function destinationHeaderHtml() {
-    // CR-074：プレイリストが1件も無い場合、この位置には何も表示しない（曲の＋ボタンをタップした
+    // プレイリストが1件も無い場合、この位置には何も表示しない（曲の＋ボタンをタップした
     // 時点で、その場で作成するダイアログを出す方式に一本化したため）
     if (!currentDestination) return '';
     return `
@@ -152,7 +150,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     `;
   }
 
-  /** プレイリスト作成画面（FR-2.17。下から現れるシート表示）を開き、作成完了／キャンセルを待つ（CR-061の＋ボタン用） */
+  /** プレイリスト作成画面（FR-2.17。下から現れるシート表示）を開き、作成完了／キャンセルを待つ（追加先選択モーダルの＋ボタン用） */
   function openFullCreateScreen() {
     return new Promise((resolve) => {
       openPlaylistCreateSheet({
@@ -169,7 +167,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   function bindDestinationHeaderEvents(slot, onChanged) {
     const headerBtn = slot.querySelector('#dest-header-btn');
     if (!headerBtn) return;
-    // フェーズ39：曲名と同じく、長いプレイリスト名も横幅に収まらなければ自動スクロールする
+    // 曲名と同じく、長いプレイリスト名も横幅に収まらなければ自動スクロールする
     setupMarquee(headerBtn.querySelector('.dest-header-name'));
     headerBtn.addEventListener('click', async () => {
       const playlists = await actions.onGetPlaylists();
@@ -178,7 +176,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const chosenId = await showAddDestinationPicker(withArtwork, {
         lastUsedPlaylistId: actions.onGetLastUsedPlaylistId(),
       });
-      // フェーズ39（CR-061、復活）：モーダル右上の＋ボタンから、その場でプレイリストを作成する
+      // モーダル右上の＋ボタンから、その場でプレイリストを作成する
       if (chosenId === CREATE_NEW) {
         const created = await openFullCreateScreen();
         if (created) {
@@ -188,7 +186,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         onChanged(); // 作成画面を閉じて、元のステップを再描画する（キャンセル時も同様）
         return;
       }
-      // CR-073：ポップアップ（追加先選択モーダル）を開いて戻ってくると、選択を変えたかどうかに
+      // ポップアップ（追加先選択モーダル）を開いて戻ってくると、選択を変えたかどうかに
       // 関わらず、取り消し可能な表示を「追加済」の確定表示にする
       const changed = chosenId && (!currentDestination || chosenId !== currentDestination.id);
       if (changed) {
@@ -218,7 +216,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
 
   /**
    * プレイリストが1件も無い状態で＋ボタンがタップされたとき、その場で作成するダイアログを
-   * 表示する（CR-074）。キャンセルするとnullを返す。
+   * 表示する。キャンセルするとnullを返す。
    * @returns {Promise<object|null>} 新しい追加先（{id, name, trackIds, artwork}）。キャンセル時はnull
    */
   async function promptCreateDestination() {
@@ -229,8 +227,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   }
 
   /**
-   * ＋ボタンのタップで、現在の追加先へ即座に1曲追加する（CR-047）。追加先プレイリストが
-   * 1件も無い場合は、その場で作成するダイアログを表示してから追加する（CR-074）。
+   * ＋ボタンのタップで、現在の追加先へ即座に1曲追加する。追加先プレイリストが
+   * 1件も無い場合は、その場で作成するダイアログを表示してから追加する。
    */
   async function handleInstantAdd(track) {
     let justCreated = false;
@@ -238,28 +236,28 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const created = await promptCreateDestination();
       if (!created) return { added: false };
       currentDestination = created;
-      justAddedIds = new Set(); // フェーズ32（FR-1.21）：新しい追加先には「その場で追加した」曲はまだ無い
+      justAddedIds = new Set(); // 新しい追加先には「その場で追加した」曲はまだ無い
       justCreated = true;
     }
     const result = await actions.onAddTrack(currentDestination.id, track.id);
     if (result.added) {
       currentDestination = { ...currentDestination, trackIds: [...currentDestination.trackIds, track.id] };
-      // フェーズ39：プレイリストが無い状態からその場で作成して追加した曲は、取り消し可能な
+      // プレイリストが無い状態からその場で作成して追加した曲は、取り消し可能な
       // チップではなく、最初から「追加済」の確定表示にする（justAddedIdsには記憶しない）
-      if (!justCreated) justAddedIds.add(track.id); // フェーズ32（FR-1.21）：取り消し可能なチップの対象として記憶する
+      if (!justCreated) justAddedIds.add(track.id); // 取り消し可能なチップの対象として記憶する
       if (justCreated) {
-        // フェーズ39：作成直後は曲がまだ無く代表画像が無いため、1曲追加した今、FR-2.10の
+        // 作成直後は曲がまだ無く代表画像が無いため、1曲追加した今、FR-2.10の
         // フォールバック（1曲目のジャケット）で代表画像を解決し直す（右上の表示に反映させる）
         currentDestination = { ...currentDestination, artwork: await actions.onResolveArtwork(currentDestination) };
       }
     }
-    // CR-074：新しく追加先を作った場合は、右上の常時表示を新しいプレイリストで更新するため、
+    // 新しく追加先を作った場合は、右上の常時表示を新しいプレイリストで更新するため、
     // 現在のステップ全体を再描画する（追加先を変更した場合と同じ扱い）
     if (justCreated) rerenderCurrentStep();
     return result;
   }
 
-  /** 取り消し可能なチップ（FR-1.21）のタップで、その場で追加した曲の追加を取り消す（フェーズ32） */
+  /** 取り消し可能なチップ（FR-1.21）のタップで、その場で追加した曲の追加を取り消す */
   async function handleInstantRemove(track) {
     if (!currentDestination) return { removed: false };
     const result = await actions.onRemoveTrack(currentDestination.id, track.id);
@@ -294,7 +292,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       <div id="search-status" class="note"></div>
       <ul class="list" id="search-results"></ul>
     `;
-    // CR-046：検索ボタンを廃止したため、モバイルキーボードのEnter等でのフォーム送信は無視する
+    // 検索ボタンを廃止したため、モバイルキーボードのEnter等でのフォーム送信は無視する
     container.querySelector('#search-form').addEventListener('submit', (e) => e.preventDefault());
 
     const statusEl = container.querySelector('#search-status');
@@ -307,7 +305,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         ...artists.map((a, i) => artistRowHtml(a, i)),
         ...albums.map((a, i) => albumRowHtml(a, i)),
         ...tracks.map((t, i) => trackRowHtml(t, i, {
-          // フェーズ32（FR-1.20・FR-1.21）：その場で追加した曲は静的なaddedバッジではなく、
+          // その場で追加した曲は静的なaddedバッジではなく、
           // 取り消し可能なjustAddedチップにする
           added: addedIds.has(t.id) && !justAddedIds.has(t.id),
           justAdded: justAddedIds.has(t.id),
@@ -384,7 +382,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       }
     }
 
-    // CR-046：文字を入力し始めた時点で、入力が止まってから（デバウンス）動的に検索する
+    // 文字を入力し始めた時点で、入力が止まってから（デバウンス）動的に検索する
     container.querySelector('#search-term').addEventListener('input', (e) => {
       const newTerm = e.target.value.trim();
       if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
@@ -402,7 +400,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       searchDebounceTimer = setTimeout(() => runSearch(newTerm), SEARCH_DEBOUNCE_MS);
     });
 
-    // 既に検索済みの結果があれば（タブ切替からの復帰、CR-019）そのまま再表示する
+    // 既に検索済みの結果があれば（タブ切替からの復帰）そのまま再表示する
     if (tracks.length || artists.length || albums.length) {
       renderResultsList();
     } else if (term) {
@@ -421,7 +419,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   async function loadArtistAlbums() {
     enterStep('albums');
     container.innerHTML = `<div class="note">アルバムを取得中…</div>`;
-    // CR-053（FR-6.3）：アーティストのアルバム一覧へのドリルダウンを1段階の遷移として履歴に積む
+    // FR-6.3：アーティストのアルバム一覧へのドリルダウンを1段階の遷移として履歴に積む
     pushBackState(renderResultsStep);
     try {
       drillAlbums = await actions.onArtistAlbums(selectedArtist.id);
@@ -467,7 +465,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   async function loadAlbumTracksFromResults() {
     enterStep('tracks');
     container.innerHTML = `<div class="note">収録曲を取得中…</div>`;
-    // CR-053（FR-6.3）：収録曲一覧へのドリルダウンを1段階の遷移として履歴に積む。
+    // FR-6.3：収録曲一覧へのドリルダウンを1段階の遷移として履歴に積む。
     // 戻り先はこの時点のprevious ModeForTracks（albums/results）で決まる
     const backTarget = previousModeForTracks === 'albums' ? renderAlbumsStep : renderResultsStep;
     pushBackState(backTarget);
@@ -557,7 +555,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
      * 検索タブが（再マウントではなく）表示状態に切り替わった際に呼ぶ。プレイリストタブ側で
      * 作成・削除された内容を反映するため、追加先プレイリストの常時表示（FR-1.19）を
      * 再解決してから、現在のステップを再描画する（ネットワークの再検索は行わない）。
-     * CR-073：他のタブを開いて検索タブに戻ってきた場合も、取り消し可能な表示を
+     * 他のタブを開いて検索タブに戻ってきた場合も、取り消し可能な表示を
      * 「追加済」の確定表示にする
      */
     onTabActivated() {

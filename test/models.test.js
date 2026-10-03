@@ -39,7 +39,7 @@ test('addTrackToPlaylist: 同じ曲ID（重複）は追加できない (FR-2.6)'
   assert.deepEqual(playlist.trackIds, ['t1'], '曲は増えない');
 });
 
-test('addTrackToPlaylist: 別収録版（別ID）は重複とみなさない (9-2)', () => {
+test('addTrackToPlaylist: 別収録版（別ID）は重複とみなさない (FR-2.6)', () => {
   let m = createPlaylist('プレイリスト');
   m = addTrackToPlaylist(m, 'single-version-id').playlist;
   const { playlist, added } = addTrackToPlaylist(m, 'album-version-id');
@@ -87,7 +87,7 @@ test('isValidPlaylist: idが無い、trackIdsが配列でない等は無効', ()
   assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: 'not-an-array' }), false);
 });
 
-test('createPlaylist: 画像（Blob）を指定して作成できる (CR-043)', () => {
+test('createPlaylist: 画像（Blob）を指定して作成できる', () => {
   const blob = new Blob(['x'], { type: 'image/jpeg' });
   const m = createPlaylist('プレイリスト', blob);
   assert.equal(m.coverImage, blob);
@@ -98,7 +98,7 @@ test('createPlaylist: 画像を指定しなければcoverImageはnull', () => {
   assert.equal(m.coverImage, null);
 });
 
-test('setPlaylistImage: 画像を設定・変更できる (CR-043・CR-044)', () => {
+test('setPlaylistImage: 画像を設定・変更できる', () => {
   const m = createPlaylist('プレイリスト');
   const blob = new Blob(['x'], { type: 'image/jpeg' });
   const updated = setPlaylistImage(m, blob);
@@ -113,7 +113,7 @@ test('setPlaylistImage: nullを渡すと画像を未設定に戻せる', () => {
   assert.equal(m.coverImage, null);
 });
 
-test('isValidPlaylist: coverImageが未設定・null・Blobのいずれも有効 (CR-043)', () => {
+test('isValidPlaylist: coverImageが未設定・null・Blobのいずれも有効', () => {
   assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [] }), true);
   assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [], coverImage: null }), true);
   assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [], coverImage: new Blob() }), true);

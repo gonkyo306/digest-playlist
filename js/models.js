@@ -1,10 +1,10 @@
-// フェーズ1：データの土台
+// データの土台
 // プレイリスト・曲のデータ構造と、それに対する純粋なロジック（DOM・保存処理には依存しない）。
 // 対応基準: FR-2.1, FR-2.6, FR-2.7, FR-3.2
 
 /**
  * 新しいプレイリストを作る。
- * 保存する内容は曲の識別情報（trackId）と、任意のカスタム画像（coverImage）のみ（FR-3.2、CR-043）。
+ * 保存する内容は曲の識別情報（trackId）と、任意のカスタム画像（coverImage）のみ（FR-3.2）。
  * 曲名・ジャケットURL等は保存しない。
  * @param {string} name
  * @param {Blob|null} [coverImage] プレイリスト作成画面（FR-2.17）で設定した画像（リサイズ・圧縮済み）
@@ -27,7 +27,7 @@ export function renamePlaylist(playlist, newName) {
   return { ...playlist, name: newName, updatedAt: Date.now() };
 }
 
-/** プレイリストの画像を設定・変更した新しいオブジェクトを返す（CR-043・CR-044、FR-2.17・FR-2.19） */
+/** プレイリストの画像を設定・変更した新しいオブジェクトを返す（FR-2.17・FR-2.19） */
 export function setPlaylistImage(playlist, coverImage) {
   return { ...playlist, coverImage: coverImage || null, updatedAt: Date.now() };
 }
@@ -66,7 +66,7 @@ export function removeTrackFromPlaylist(playlist, trackId) {
 
 /**
  * 保存用にシリアライズ可能な形かどうかを検証する（storage.js から利用）。
- * coverImage（CR-043）は任意項目で、未設定（undefined）・null・Blobのいずれかであれば有効とする。
+ * coverImageは任意項目で、未設定（undefined）・null・Blobのいずれかであれば有効とする。
  */
 export function isValidPlaylist(obj) {
   return !!obj

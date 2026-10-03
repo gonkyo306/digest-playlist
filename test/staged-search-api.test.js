@@ -79,7 +79,7 @@ test('buildAlbumTracksUrl: アルバムIDが無いとエラーになる', () => 
   assert.throws(() => buildAlbumTracksUrl());
 });
 
-test('buildAlbumSearchUrl: キーワードでのアルバム検索（entity=album）が組み立てられる (CR-017)', () => {
+test('buildAlbumSearchUrl: キーワードでのアルバム検索（entity=album）が組み立てられる', () => {
   const url = buildAlbumSearchUrl('YOASOBI');
   const parsed = new URL(url);
   assert.equal(parsed.origin + parsed.pathname, 'https://itunes.apple.com/search');
@@ -88,7 +88,7 @@ test('buildAlbumSearchUrl: キーワードでのアルバム検索（entity=albu
   assert.equal(parsed.searchParams.get('media'), 'music');
 });
 
-test('buildAlbumSearchUrl: 統合検索の候補件数を絞るため既定のlimitは5件 (CR-017)', () => {
+test('buildAlbumSearchUrl: 統合検索の候補件数を絞るため既定のlimitは5件', () => {
   const url = buildAlbumSearchUrl('YOASOBI');
   assert.equal(new URL(url).searchParams.get('limit'), '5');
 });
@@ -102,7 +102,7 @@ test('buildAlbumSearchUrl: 空のキーワードはエラーになる', () => {
   assert.throws(() => buildAlbumSearchUrl(''));
 });
 
-test('buildArtistSearchUrlLimited: 統合検索の候補件数を絞るため既定のlimitは5件 (CR-017)', () => {
+test('buildArtistSearchUrlLimited: 統合検索の候補件数を絞るため既定のlimitは5件', () => {
   const url = buildArtistSearchUrlLimited('YOASOBI');
   const parsed = new URL(url);
   assert.equal(parsed.searchParams.get('entity'), 'musicArtist');

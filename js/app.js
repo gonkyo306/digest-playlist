@@ -1,9 +1,7 @@
 // アプリ本体のエントリポイント。
-// フェーズ7〜11：「プレイリスト」「検索」の2タブ構成（FR-6.1）、再生の永続化・ミニプレイヤー
-// （FR-4.16, FR-4.17）、検索の拡張（FR-1.1, 1.8〜1.13）、アーティスト順ソート（FR-2.11）を統合する。
-// フェーズ14〜19（CR-016〜029）：再生パネル廃止・ミニプレイヤー集約、試聴のミニプレイヤー統合、
-// 検索の統合とドリルダウン、タブ間の状態保持、カート廃止とその場一括追加、
-// 追加先プレイリストの記憶、細部の品質改善をまとめて反映する。
+// 「プレイリスト」「検索」の2タブ構成（FR-6.1）、再生の永続化・ミニプレイヤー（FR-4.16, FR-4.17）、
+// 検索（統合検索とドリルダウン。FR-1.1〜FR-1.12）、アーティスト順ソート（FR-2.11）、
+// 試聴のミニプレイヤー統合、タブ間の状態保持、追加先プレイリストの記憶を統合する。
 
 import { getAllPlaylists, getPlaylist, savePlaylist, deletePlaylist } from './storage.js';
 import {
@@ -37,14 +35,12 @@ const searchPaneEl = document.getElementById('search-pane');
 const tabBarEl = document.getElementById('tab-bar');
 const miniPlayerEl = document.getElementById('mini-player');
 
-// --- 試聴（FR-1.5）：CR-020/023でミニプレイヤーにも表示する ---
+// --- 試聴（FR-1.5）：ミニプレイヤーにも表示する ---
 let previewTrack = null; // 試聴中の曲（表示用データ）。試聴していなければnull
 const realPreviewPlayer = new PreviewPlayer({
-  // 不具合修正：別の曲へ切り替える際、PreviewPlayer.play()は内部でstop()を呼び、
-  // 直前の曲のonStopが同期的に発火する（新しい曲のpreviewTrackへの代入より後に実行される）。
-  // ここでstoppedIdを見ずに一律previewTrack=nullとしていたため、切り替え後のpreviewTrackが
-  // 消されてしまい、他の曲をタップしても再生されないように見える不具合があった。
-  // 「いま止めようとしている曲」が、表示中のpreviewTrackと同じ場合だけクリアする。
+  // 別の曲へ切り替える際、PreviewPlayer.play()は内部でstop()を呼び、直前の曲のonStopが同期的に
+  // 発火する（新しい曲のpreviewTrackへの代入より後に実行される）。そのため、一律previewTrack=nullと
+  // せず、「いま止めようとしている曲」が表示中のpreviewTrackと同じ場合だけクリアする。
   onStop: (stoppedId) => {
     if (previewTrack && previewTrack.id === stoppedId) {
       previewTrack = null;
@@ -74,7 +70,7 @@ const previewPlayer = {
 // --- 画面全体のタブ状態（FR-6.1） ---
 let activeTab = 'playlist'; // 'playlist' | 'search'
 // { screen: 'list' } | { screen: 'detail', playlistId }（プレイリスト作成は下から現れるシート表示で、
-// 一覧画面の上に重ねるため、ここでは別画面として扱わない。フェーズ41）
+// 一覧画面の上に重ねるため、ここでは別画面として扱わない）
 let playlistView = { screen: 'list' };
 
 // --- 再生の永続化（FR-4.16）：画面遷移では破棄しない。新しい再生を始めるときだけ入れ替える ---
@@ -83,7 +79,7 @@ let currentPlayer = null;
 /** @type {{type: 'playlist', playlistId: string}|{type: 'album', albumName: string}|null} */
 let playbackContext = null;
 
-// --- CR-025：直前に追加した先のプレイリストIDを記憶する（アプリのセッション内のみ） ---
+// --- 直前に追加した先のプレイリストIDを記憶する（アプリのセッション内のみ） ---
 let lastUsedPlaylistId = null;
 
 function disposeCurrentPlayer() {
@@ -97,7 +93,7 @@ function setupMediaSession() {
   navigator.mediaSession.setActionHandler('play', () => currentPlayer && currentPlayer.togglePlayPause());
   navigator.mediaSession.setActionHandler('pause', () => currentPlayer && currentPlayer.togglePlayPause());
   navigator.mediaSession.setActionHandler('nexttrack', () => currentPlayer && currentPlayer.next());
-  // CR-068：前の曲へ戻る機能自体を廃止（FR-4.10改訂）したため、ロック画面/通知の「前へ」も無効化する
+  // 前の曲へ戻る機能は無いため、ロック画面/通知の「前へ」も無効化する（FR-4.12）
   navigator.mediaSession.setActionHandler('previoustrack', null);
 }
 setupMediaSession();
@@ -115,20 +111,19 @@ window.addEventListener('offline', () => currentPlayer && currentPlayer.handleOf
 window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnline());
 
 /**
- * ミニプレイヤー（CR-016）へ、再生状態を反映する。
- * CR-016：再生パネルを廃止したため、詳細画面を見ているかどうかに関わらず、
- * 再生中は常にミニプレイヤーを表示する。曲一覧側のハイライト表示（CR-022）は、
- * ミニプレイヤーで確認できるため廃止した（フェーズ22）。
+ * ミニプレイヤーへ、再生状態を反映する。
+ * 詳細画面を見ているかどうかに関わらず、再生中は常にミニプレイヤーを表示する（FR-4.16）。
+ * 曲一覧側のハイライト表示は行わない（ミニプレイヤーで確認できる）。
  */
 function reflectPlaybackState() {
   renderMiniPlayerBar();
-  // フェーズ41：ロック画面・通知の再生/一時停止の表示も、画面（ミニプレイヤー）と同じ状態にそろえる
+  // ロック画面・通知の再生/一時停止の表示も、画面（ミニプレイヤー）と同じ状態にそろえる
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = !currentPlayer ? 'none' : (currentPlayer.playing ? 'playing' : 'paused');
   }
 }
 
-/** ミニプレイヤーの表示を更新する（試聴中はCR-020/023、本編再生中はCR-016） */
+/** ミニプレイヤーの表示を更新する（試聴中は試聴の曲、本編再生中は再生中の曲を表示する） */
 function renderMiniPlayerBar() {
   if (previewTrack) {
     renderMiniPlayer(
@@ -170,7 +165,7 @@ function renderMiniPlayerBar() {
 function renderTabBarUi() {
   renderTabBar(tabBarEl, activeTab, (tab) => {
     if (tab === activeTab) {
-      // 既に表示中のタブの再タップ：そのタブのトップ画面へリセットする（CR-030、FR-6.2）
+      // 既に表示中のタブの再タップ：そのタブのトップ画面へリセットする（FR-6.2）
       if (tab === 'playlist') {
         showPlaylistList();
       } else {
@@ -187,19 +182,19 @@ function renderTabBarUi() {
   });
 }
 
-/** CR-019：タブ切替では検索・プレイリストどちらのDOMも再生成せず、表示/非表示だけ切り替える */
+/** タブ切替では検索・プレイリストどちらのDOMも再生成せず、表示/非表示だけ切り替える */
 function applyTabVisibility() {
   renderTabBarUi();
   playlistPaneEl.classList.toggle('tab-pane-hidden', activeTab !== 'playlist');
   searchPaneEl.classList.toggle('tab-pane-hidden', activeTab !== 'search');
-  // フェーズ42：非表示のまま描画された画面は幅が0で自動スクロールの判定ができないため、表示したときに判定し直す
+  // 非表示のまま描画された画面は幅が0で自動スクロールの判定ができないため、表示したときに判定し直す
   setupMarquees(activeTab === 'playlist' ? playlistPaneEl : searchPaneEl);
   renderMiniPlayerBar();
 }
 
 // --- プレイリストタブ ---
 
-// CR-053（FR-6.3）：プレイリスト詳細を開いた際に、OSの戻る操作で一覧へ戻るための処理として
+// FR-6.3：プレイリスト詳細を開いた際に、OSの戻る操作で一覧へ戻るための処理として
 // history.pushStateとセットで使う
 function goToPlaylistList() {
   playlistView = { screen: 'list' };
@@ -210,7 +205,7 @@ async function showPlaylistList() {
   playlistView = { screen: 'list' };
   const playlists = await getAllPlaylists();
   playlists.sort((a, b) => b.updatedAt - a.updatedAt);
-  // CR-055（FR-2.9）：一覧の各行に代表画像を表示するため、表示前に解決しておく
+  // FR-2.9：一覧の各行に代表画像を表示するため、表示前に解決しておく
   const artworkMap = await resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds);
   const withArtwork = playlists.map((p) => ({ ...p, artwork: artworkMap.get(p.id) }));
   renderPlaylistList(playlistPaneEl, withArtwork, {
@@ -225,7 +220,7 @@ async function showPlaylistList() {
 }
 
 /**
- * プレイリスト作成画面（CR-043、FR-2.17）。フェーズ41：一覧画面の上に、画面下からスライドして
+ * プレイリスト作成画面（FR-2.17）。一覧画面の上に、画面下からスライドして
  * 現れるシートとして表示する（他のポップアップと同じ動き）。一覧画面自体は入れ替えない。
  */
 function showPlaylistCreate() {
@@ -259,7 +254,7 @@ async function showPlaylistDetail(playlistId) {
   renderDetailScreen(playlist, available, fetchError);
 }
 
-/** プレイリスト詳細画面を描画する（フェーズ41：再生中も画面の内容は変わらないため、再生開始時の再描画はしない） */
+/** プレイリスト詳細画面を描画する（再生中も画面の内容は変わらないため、再生開始時の再描画はしない） */
 function renderDetailScreen(playlist, available, fetchError) {
   const playlistId = playlist.id;
 
@@ -269,13 +264,13 @@ function renderDetailScreen(playlist, available, fetchError) {
       goToPlaylistList();
     },
     onStartPlayback: (shuffleOn) => {
-      // シャッフルOFF時は曲一覧の表示順（アーティスト名順）で再生する（CR-038、FR-2.16）
+      // シャッフルOFF時は曲一覧の表示順（アーティスト名順）で再生する（FR-2.16）
       const ordered = sortTracksByArtist(available);
       startPlaylistPlayback(playlistId, ordered, undefined, shuffleOn);
     },
     onTrackTap: (trackId, shuffleOn) => {
-      // タップした曲を1曲目にして再生を始める（CR-032、FR-2.13）。シャッフルOFF時は表示順のまま
-      // タップした曲の次から連続再生するため、表示順（アーティスト名順）で並べたtracksを使う（CR-038）
+      // タップした曲を1曲目にして再生を始める（FR-2.13）。シャッフルOFF時は表示順のまま
+      // タップした曲の次から連続再生するため、表示順（アーティスト名順）で並べたtracksを使う
       const ordered = sortTracksByArtist(available);
       const startIndex = ordered.findIndex((t) => t.id === trackId);
       startPlaylistPlayback(playlistId, ordered, startIndex === -1 ? undefined : startIndex, shuffleOn);
@@ -284,7 +279,7 @@ function renderDetailScreen(playlist, available, fetchError) {
       const removedIds = playlist.trackIds.filter((id) => !remainingTrackIds.includes(id));
       let updated = renamePlaylist(playlist, newName);
       removedIds.forEach((id) => { updated = removeTrackFromPlaylist(updated, id); });
-      // CR-044（FR-2.19）：画像を変更した場合のみ確定する（undefinedのままなら変更なし）
+      // FR-2.19：画像を変更した場合のみ確定する（undefinedのままなら変更なし）
       if (newImageBlob !== undefined) updated = setPlaylistImage(updated, newImageBlob);
       await savePlaylist(updated);
       if (removedIds.length && playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId) {
@@ -303,7 +298,7 @@ function renderDetailScreen(playlist, available, fetchError) {
 }
 
 function startPlaylistPlayback(playlistId, tracks, startIndex, shuffleOn = true) {
-  // 不具合修正：試聴中に本編再生を始めても試聴の音声・ミニプレイヤー表示が残ってしまうため、
+  // 試聴中に本編再生を始めても試聴の音声・ミニプレイヤー表示が残らないよう、
   // startAlbumPlaybackと同様、本編再生の開始前に試聴を止める（FR-1.6）
   previewPlayer.stop();
   disposeCurrentPlayer();
@@ -315,11 +310,11 @@ function startPlaylistPlayback(playlistId, tracks, startIndex, shuffleOn = true)
     },
     onPlayStateChange: () => reflectPlaybackState(),
     onFailureStop: () => reflectPlaybackState(),
-    onPlaybackComplete: () => reflectPlaybackState(), // CR-063：一巡後の自動停止をミニプレイヤーに反映
+    onPlaybackComplete: () => reflectPlaybackState(), // 一巡後の自動停止をミニプレイヤーに反映
   });
   playbackContext = { type: 'playlist', playlistId };
   currentPlayer.start(startIndex);
-  // フェーズ41：再生の開始待ち（読み込み中）の曲からミニプレイヤーに表示する。曲を切り替えるときに
+  // 再生の開始待ち（読み込み中）の曲からミニプレイヤーに表示する。曲を切り替えるときに
   // ミニプレイヤーが一瞬消えて、画面下部のレイアウトが上下に動いてしまうのを防ぐ
   reflectPlaybackState();
 }
@@ -332,9 +327,9 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
   const ordered = orderAlbumTracks(tracks, shuffle);
   currentPlayer = new PlaylistPlayer(ordered, {
     // orderAlbumTracksで既に並び順（収録順／シャッフル済み）を決定済みのため、
-    // PlaylistPlayer側ではさらに並び替えず、orderedの並び順のまま再生する（不具合修正：
-    // shuffle:falseを指定していないと、PlaylistPlayer自身が初期順序を毎回ランダムに
-    // 組み直してしまい、シャッフルOFFでも実際には順不同で再生されていた）
+    // PlaylistPlayer側ではさらに並び替えず、orderedの並び順のまま再生する（shuffle:falseを指定
+    // しないと、PlaylistPlayer自身が初期順序をランダムに組み直してしまい、シャッフルOFFでも
+    // 順不同で再生されてしまう）
     shuffle: false,
     onTrackChange: (track) => {
       updateMediaSessionMetadata(track);
@@ -342,7 +337,7 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
     },
     onPlayStateChange: () => reflectPlaybackState(),
     onFailureStop: () => reflectPlaybackState(),
-    onPlaybackComplete: () => reflectPlaybackState(), // CR-063：一巡後の自動停止をミニプレイヤーに反映
+    onPlaybackComplete: () => reflectPlaybackState(), // 一巡後の自動停止をミニプレイヤーに反映
   });
   playbackContext = { type: 'album', albumName };
   currentPlayer.start();
@@ -351,7 +346,7 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
 
 /**
  * 検索結果の＋ボタンをタップした時点で、その1曲だけを現在の追加先プレイリストへ即座に
- * 追加する（FR-1.12、CR-047。複数選択→一括追加の方式は廃止した）。
+ * 追加する（FR-1.12。複数選択してまとめて追加する方式ではない）。
  * @param {string} playlistId
  * @param {string|number} trackId
  * @returns {Promise<{added: boolean}>}
@@ -366,7 +361,7 @@ async function handleInstantAdd(playlistId, trackId) {
     if (playlistView.screen === 'detail' && playlistView.playlistId === playlistId) {
       showPlaylistDetail(playlistId);
     } else if (playlistView.screen === 'list') {
-      // 一覧画面の曲数表示が古いままにならないよう更新する（フェーズ22の不具合修正と同じ観点）
+      // 一覧画面の曲数表示が古いままにならないよう更新する
       showPlaylistList();
     }
   }
@@ -375,7 +370,7 @@ async function handleInstantAdd(playlistId, trackId) {
 
 /**
  * その場（今回の＋タップ）で追加した曲の、取り消し可能なチップ（FR-1.21）をタップした時点で、
- * その1曲だけを追加先プレイリストから取り消す（フェーズ32、CR-056）。
+ * その1曲だけを追加先プレイリストから取り消す。
  * @param {string} playlistId
  * @param {string|number} trackId
  * @returns {Promise<{removed: boolean}>}

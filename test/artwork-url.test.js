@@ -1,4 +1,4 @@
-// CR-034関連の画質改善：iTunes画像URLの解像度差し替えのUnitテスト。
+// iTunes画像URLの解像度差し替えのUnitテスト。
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
