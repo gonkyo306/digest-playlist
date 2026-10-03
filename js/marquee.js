@@ -10,11 +10,13 @@
 // フェーズ43：スクロールは初期表示から1秒後に開始する。また、末尾まで全て
 // 流し終わる前に先頭の文字が右端から再び現れないよう、複製との間隔（.marquee-textの右余白）を
 // 表示領域の幅と同じにする（収まるかの判定も、右余白を含まないテキスト自体の幅で行う）。
+// フェーズ45：複製との間隔を使って流し続ける方式をやめ、はみ出した分が全て左に流れ切った（末尾が右端に
+// 届いた）時点で初期表示へ戻す方式に変更した（複製のテキスト・間隔は不要になった）。
 // フェーズ44：2周目以降も、初期位置に戻してから1秒静止して流し直すよう、CSSのanimationを
 // やめて、静止区間を含むキーフレームをWeb Animations APIで組み立てる。
 
 const SCROLL_PX_PER_SECOND = 40;
-const MIN_SCROLL_SECONDS = 8;
+const MIN_SCROLL_SECONDS = 3;
 // フェーズ44：スクロール開始前（初期表示の直後、および1周するごとに初期位置へ戻したあと）に静止する時間
 const HOLD_SECONDS = 1;
 
@@ -59,21 +61,15 @@ export function setupMarquee(el) {
   pendingFrames.set(el, requestAnimationFrame(() => {
     pendingFrames.delete(el);
     if (!track.isConnected) return; // 判定前に再描画・画面遷移していれば何もしない
-    while (track.children.length > 1) track.removeChild(track.lastChild);
-    el.style.removeProperty('--marquee-gap');
+    stopAnimation(el);
     const viewWidth = el.clientWidth;
-    const textWidth = original.offsetWidth; // 右余白を除いた、テキスト自体の幅
+    const textWidth = original.offsetWidth;
     if (textWidth > viewWidth + 1) {
-      const clone = original.cloneNode(true);
-      clone.setAttribute('aria-hidden', 'true');
-      track.appendChild(clone);
-      el.style.setProperty('--marquee-gap', `${viewWidth}px`);
-      // 1周 = 初期位置で1秒静止 → 複製が初期位置に来るまで左へ流す。繰り返しのたびに初期位置から
-      // 同じ待ち時間を置いてから流し直す（複製が初期位置に重なるため、戻る瞬間は見た目が変わらない）
-      const distance = textWidth + viewWidth;
+      // 1周 = 初期表示で1秒静止 → はみ出した分だけ左へ流す（末尾が右端に届くまで）→ 初期表示へ戻す。
+      // 戻ったあとも毎回、同じ1秒の静止を置いてから流し直す
+      const distance = textWidth - viewWidth;
       const scrollSeconds = Math.max(MIN_SCROLL_SECONDS, distance / SCROLL_PX_PER_SECOND);
       const totalSeconds = HOLD_SECONDS + scrollSeconds;
-      el.style.setProperty('--marquee-duration', `${totalSeconds.toFixed(1)}s`);
       const holdEnd = HOLD_SECONDS / totalSeconds;
       runningAnimations.set(el, track.animate([
         { transform: 'translateX(0)', offset: 0 },
