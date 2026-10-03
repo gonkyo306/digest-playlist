@@ -9,7 +9,9 @@ import {
   renamePlaylist,
   setPlaylistImage,
   addTrackToPlaylist,
+  addTracksToPlaylist,
   removeTrackFromPlaylist,
+  removeTracksFromPlaylist,
 } from './models.js';
 import { fetchTrackInfoByIds } from './track-api.js';
 import { fetchSearchResults } from './search-api.js';
@@ -29,6 +31,7 @@ import { renderTabBar } from './views/tab-bar-view.js';
 import { renderMiniPlayer } from './views/mini-player-view.js';
 import { pushBackState, popBackState } from './back-stack.js';
 import { setupMarquees } from './marquee.js';
+import { getLastPlayedPlaylistId, setLastPlayedPlaylistId } from './last-played.js';
 
 const playlistPaneEl = document.getElementById('playlist-pane');
 const searchPaneEl = document.getElementById('search-pane');
@@ -82,6 +85,15 @@ let playbackContext = null;
 // --- 直前に追加した先のプレイリストIDを記憶する（アプリのセッション内のみ） ---
 let lastUsedPlaylistId = null;
 
+/** プレイリスト一覧の再生ボタンに反映する再生状態（FR-2.9）。再生中のプレイリストと、実際に鳴っているか */
+function playbackForList() {
+  const playlistId = playbackContext?.type === 'playlist' ? playbackContext.playlistId : null;
+  return { playlistId, playing: !!currentPlayer && currentPlayer.playing && !currentPlayer.finished };
+}
+
+// プレイリスト一覧の表示（再生ボタンの状態を、描き直さずに更新するためのAPI）。一覧が表示中でないときはnull
+let playlistListApi = null;
+
 function disposeCurrentPlayer() {
   if (currentPlayer) currentPlayer.dispose();
   currentPlayer = null;
@@ -117,6 +129,7 @@ window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnl
  */
 function reflectPlaybackState() {
   renderMiniPlayerBar();
+  if (playlistView.screen === 'list') playlistListApi?.setPlayback(playbackForList());
   // ロック画面・通知の再生/一時停止の表示も、画面（ミニプレイヤー）と同じ状態にそろえる
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = !currentPlayer ? 'none' : (currentPlayer.playing ? 'playing' : 'paused');
@@ -201,6 +214,25 @@ function goToPlaylistList() {
   showPlaylistList();
 }
 
+/**
+ * プレイリスト一覧の再生ボタン・「前回のプレイリスト」カードから、詳細画面を開かずに再生する
+ * （FR-2.9、FR-2.20）。再生中のプレイリストなら一時停止／再開し、それ以外は、全曲をシャッフルで
+ * 最初から再生する。
+ */
+async function handlePlayFromList(playlistId) {
+  const isCurrent = playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId;
+  if (isCurrent && currentPlayer && !currentPlayer.finished && !currentPlayer.stopped) {
+    currentPlayer.togglePlayPause();
+    reflectPlaybackState();
+    return;
+  }
+  const playlist = await getPlaylist(playlistId);
+  if (!playlist || playlist.trackIds.length === 0) throw new Error('曲がありません');
+  const { available } = await fetchTrackInfoByIds(playlist.trackIds);
+  if (available.length === 0) throw new Error('曲の情報を取得できませんでした');
+  startPlaylistPlayback(playlistId, sortTracksByArtist(available), undefined, true);
+}
+
 async function showPlaylistList() {
   playlistView = { screen: 'list' };
   const playlists = await getAllPlaylists();
@@ -208,14 +240,15 @@ async function showPlaylistList() {
   // FR-2.9：一覧の各行に代表画像を表示するため、表示前に解決しておく
   const artworkMap = await resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds);
   const withArtwork = playlists.map((p) => ({ ...p, artwork: artworkMap.get(p.id) }));
-  renderPlaylistList(playlistPaneEl, withArtwork, {
+  playlistListApi = renderPlaylistList(playlistPaneEl, withArtwork, {
     onOpen: (id) => {
       playlistView = { screen: 'detail', playlistId: id };
       showPlaylistDetail(id);
       pushBackState(goToPlaylistList);
     },
     onCreateNew: () => showPlaylistCreate(),
-  });
+    onPlay: (id) => handlePlayFromList(id),
+  }, { lastPlayedId: getLastPlayedPlaylistId(), playback: playbackForList() });
   renderMiniPlayerBar();
 }
 
@@ -313,6 +346,7 @@ function startPlaylistPlayback(playlistId, tracks, startIndex, shuffleOn = true)
     onPlaybackComplete: () => reflectPlaybackState(), // 一巡後の自動停止をミニプレイヤーに反映
   });
   playbackContext = { type: 'playlist', playlistId };
+  setLastPlayedPlaylistId(playlistId); // 一覧の「前回のプレイリスト」カードに使う（FR-2.20）
   currentPlayer.start(startIndex);
   // 再生の開始待ち（読み込み中）の曲からミニプレイヤーに表示する。曲を切り替えるときに
   // ミニプレイヤーが一瞬消えて、画面下部のレイアウトが上下に動いてしまうのを防ぐ
@@ -344,6 +378,16 @@ function startAlbumPlayback(tracks, { shuffle, albumName }) {
   reflectPlaybackState();
 }
 
+/** 検索タブでプレイリストの曲が変わったとき、プレイリストタブ側の表示（曲数・曲一覧）を更新する */
+function refreshPlaylistScreenAfterChange(playlistId) {
+  if (playlistView.screen === 'detail' && playlistView.playlistId === playlistId) {
+    showPlaylistDetail(playlistId);
+  } else if (playlistView.screen === 'list') {
+    // 一覧画面の曲数表示が古いままにならないよう更新する
+    showPlaylistList();
+  }
+}
+
 /**
  * 検索結果の＋ボタンをタップした時点で、その1曲だけを現在の追加先プレイリストへ即座に
  * 追加する（FR-1.12。複数選択してまとめて追加する方式ではない）。
@@ -358,14 +402,35 @@ async function handleInstantAdd(playlistId, trackId) {
   if (result.added) {
     await savePlaylist(result.playlist);
     lastUsedPlaylistId = playlistId;
-    if (playlistView.screen === 'detail' && playlistView.playlistId === playlistId) {
-      showPlaylistDetail(playlistId);
-    } else if (playlistView.screen === 'list') {
-      // 一覧画面の曲数表示が古いままにならないよう更新する
-      showPlaylistList();
-    }
+    refreshPlaylistScreenAfterChange(playlistId);
   }
   return { added: result.added };
+}
+
+/**
+ * アルバムの全曲追加（FR-1.24）：指定した曲のうち、追加先に無い曲だけをまとめて追加する（FR-2.6）。
+ * @param {string} playlistId
+ * @param {Array<string|number>} trackIds
+ * @returns {Promise<{addedIds: Array<string|number>}>}
+ */
+async function handleBulkAdd(playlistId, trackIds) {
+  const playlist = await getPlaylist(playlistId);
+  if (!playlist) return { addedIds: [] };
+  const result = addTracksToPlaylist(playlist, trackIds);
+  if (result.addedIds.length) {
+    await savePlaylist(result.playlist);
+    lastUsedPlaylistId = playlistId;
+    refreshPlaylistScreenAfterChange(playlistId);
+  }
+  return { addedIds: result.addedIds };
+}
+
+/** 全曲追加の取り消し（FR-1.24）：その操作で追加した曲だけを、追加先から削除する */
+async function handleBulkRemove(playlistId, trackIds) {
+  const playlist = await getPlaylist(playlistId);
+  if (!playlist) return;
+  await savePlaylist(removeTracksFromPlaylist(playlist, trackIds));
+  refreshPlaylistScreenAfterChange(playlistId);
 }
 
 /**
@@ -408,6 +473,8 @@ function mountSearchTab() {
     onResolveArtworkForAll: (playlists) => resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds),
     onAddTrack: (playlistId, trackId) => handleInstantAdd(playlistId, trackId),
     onRemoveTrack: (playlistId, trackId) => handleUndoRemove(playlistId, trackId),
+    onAddTracks: (playlistId, trackIds) => handleBulkAdd(playlistId, trackIds),
+    onRemoveTracks: (playlistId, trackIds) => handleBulkRemove(playlistId, trackIds),
     onCreatePlaylist: async (name, imageBlob) => {
       const created = createPlaylist(name, imageBlob);
       await savePlaylist(created);

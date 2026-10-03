@@ -99,12 +99,14 @@ export function showConfirm({ title, message, confirmLabel = 'OK', cancelLabel =
  * プレイリストが1件も無い状態で曲の＋ボタンをタップしたときに表示する、その場でプレイリストを
  * 作成するための名前入力ダイアログ。作成すると、タップした曲がそのまま追加される
  * （呼び出し側で行う）。
+ * @param {{subject?: string}} [options] 作成後に追加されるものの呼び方（既定は「この曲」。
+ *   アルバムの全曲追加では「このアルバムの全曲」）
  * @returns {Promise<string|null>} 作成するプレイリスト名（空でない、前後の空白を除いた文字列）。
  *   キャンセル時はnull
  */
-export function showCreatePlaylistPrompt() {
+export function showCreatePlaylistPrompt({ subject = 'この曲' } = {}) {
   return enqueueDialog(() => new Promise((resolve) => {
-    const message = '曲を追加するには、まずプレイリストを作成してください。\n作成すると、この曲がそのまま追加されます。';
+    const message = `曲を追加するには、まずプレイリストを作成してください。\n作成すると、${subject}がそのまま追加されます。`;
     const overlay = buildOverlay(`
       <h2 class="dialog-title">プレイリストがまだありません</h2>
       <p class="dialog-message">${escapeHtml(message)}</p>

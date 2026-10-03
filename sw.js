@@ -3,7 +3,7 @@
 // 必ずCACHE_NAMEの末尾の番号を増やすこと。番号を変えないと、sw.js自体のバイト列が変わらないため
 // ブラウザが新しいService Workerの存在に気づかず、インストール済みの端末にはいつまでも古い
 // キャッシュ（index.html・css/style.css・js/*等）が配信され続けてしまう
-const CACHE_NAME = 'digest-playlist-shell-v19';
+const CACHE_NAME = 'digest-playlist-shell-v20';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',
@@ -24,6 +24,7 @@ const SHELL_FILES = [
   './js/playlist-artwork.js',
   './js/blob-url-cache.js',
   './js/back-stack.js',
+  './js/last-played.js',
   './js/marquee.js',
   './js/album-playback.js',
   './js/views/playlist-list-view.js',

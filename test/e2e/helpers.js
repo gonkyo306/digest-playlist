@@ -17,6 +17,24 @@ const MIME = {
 // 1x1の透明PNG（ジャケット画像のモック）
 const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
+// 2秒の無音WAV（試聴音源のモック。実際に再生できるので、再生状態の変化を確認できる）
+function silentWav(seconds = 2, rate = 8000) {
+  const samples = seconds * rate;
+  const buf = Buffer.alloc(44 + samples * 2);
+  buf.write('RIFF', 0); buf.writeUInt32LE(36 + samples * 2, 4); buf.write('WAVE', 8); buf.write('fmt ', 12);
+  buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22); buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate * 2, 28); buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34); buf.write('data', 36);
+  buf.writeUInt32LE(samples * 2, 40);
+  return buf;
+}
+const WAV = silentWav();
+
+export const ALBUM_ID = 900;
+export const ALBUM = {
+  wrapperType: 'collection', collectionType: 'Album', collectionId: ALBUM_ID, collectionName: 'テストアルバム',
+  artistName: 'ビートルズ', artworkUrl100: 'http://localhost/__art/album.jpg',
+};
+
 export const TITLES = [
   'ドライヴ・マイ・カー (2009 - Remaster)',
   'ノルウェーの森(ノーウェジアン・ウッド) とても長いタイトルがさらに続きます',
@@ -50,7 +68,8 @@ export function startServer() {
 export async function launchBrowser() {
   const candidates = [process.env.CHROMIUM_PATH, '/opt/pw-browsers/chromium'].filter(Boolean);
   const executablePath = candidates.find((p) => fs.existsSync(p));
-  return chromium.launch(executablePath ? { executablePath } : {});
+  const args = ['--autoplay-policy=no-user-gesture-required'];
+  return chromium.launch(executablePath ? { executablePath, args } : { args });
 }
 
 /**
@@ -67,15 +86,21 @@ export async function openApp(browser, origin, { playlists = [], tracks = [0, 1,
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/__art/**', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PNG_1X1 }));
-  await page.route('**/__aud/**', (r) => r.abort());
+  await page.route('**/__aud/**', (r) => r.fulfill({
+    status: 200, contentType: 'audio/wav', headers: { 'Access-Control-Allow-Origin': '*' }, body: WAV,
+  }));
   await page.route('**/itunes.apple.com/**', (r) => {
     const u = new URL(r.request().url());
     let results = tracks;
     if (u.pathname.endsWith('/lookup')) {
       const ids = (u.searchParams.get('id') || '').split(',');
-      results = tracks.filter((t) => ids.includes(String(t.trackId)));
+      results = u.searchParams.get('entity') === 'song' && ids.includes(String(ALBUM_ID))
+        ? [ALBUM, ...tracks] // アルバムの収録曲
+        : tracks.filter((t) => ids.includes(String(t.trackId)));
+    } else if (u.searchParams.get('entity') === 'album') {
+      results = [ALBUM];
     } else if (u.searchParams.get('entity') && u.searchParams.get('entity') !== 'song') {
-      results = []; // アーティスト・アルバム候補は無し
+      results = []; // アーティスト候補は無し
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ resultCount: results.length, results }) });
   });
