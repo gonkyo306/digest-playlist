@@ -10,8 +10,8 @@
 // フェーズ43：スクロールは初期表示から1秒後に開始する。また、末尾まで全て
 // 流し終わる前に先頭の文字が右端から再び現れないよう、複製との間隔（.marquee-textの右余白）を
 // 表示領域の幅と同じにする（収まるかの判定も、右余白を含まないテキスト自体の幅で行う）。
-// フェーズ45：複製との間隔を使って流し続ける方式をやめ、はみ出した分が全て左に流れ切った（末尾が右端に
-// 届いた）時点で初期表示へ戻す方式に変更した（複製のテキスト・間隔は不要になった）。
+// フェーズ45：複製との間隔を使って流し続ける方式をやめ、テキスト全体が左に流れ切って何も見えなくなった
+// 時点で初期表示へ戻す方式に変更した（複製のテキスト・間隔は不要になった）。
 // フェーズ44：2周目以降も、初期位置に戻してから1秒静止して流し直すよう、CSSのanimationを
 // やめて、静止区間を含むキーフレームをWeb Animations APIで組み立てる。
 
@@ -65,9 +65,9 @@ export function setupMarquee(el) {
     const viewWidth = el.clientWidth;
     const textWidth = original.offsetWidth;
     if (textWidth > viewWidth + 1) {
-      // 1周 = 初期表示で1秒静止 → はみ出した分だけ左へ流す（末尾が右端に届くまで）→ 初期表示へ戻す。
+      // 1周 = 初期表示で1秒静止 → テキスト全体が左へ流れ切って何も見えなくなるまで流す → 初期表示へ戻す。
       // 戻ったあとも毎回、同じ1秒の静止を置いてから流し直す
-      const distance = textWidth - viewWidth;
+      const distance = textWidth;
       const scrollSeconds = Math.max(MIN_SCROLL_SECONDS, distance / SCROLL_PX_PER_SECOND);
       const totalSeconds = HOLD_SECONDS + scrollSeconds;
       const holdEnd = HOLD_SECONDS / totalSeconds;
