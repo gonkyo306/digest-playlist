@@ -1,7 +1,8 @@
 // プレイリスト一覧画面（起動後の最初の画面、FR-2.8）
 // 名前変更・削除は、この一覧の各行からは行わず、詳細画面の右上で行う（FR-2.2, FR-2.3）。
 // 各行は、プレイリストを開くタップ操作と、行の右端の再生ボタン（詳細画面を開かずにシャッフル再生。
-// FR-2.9）を持つ。先頭には、前回再生したプレイリストのカード（FR-2.20）を出す。
+// FR-2.9）を持つ。再生ボタンは常に「再生」の表示で、再生中に押すと最初から再生し直す
+// （一時停止はミニプレイヤーで行う）。先頭には、前回再生したプレイリストのカード（FR-2.20）を出す。
 // 見出しをscreen-headerクラスで囲み、検索画面の見出しと高さを揃えることで、直下の入力欄（検索語）の
 // 表示位置がタブ間でずれないようにする。
 // 新規作成は右上の＋ボタンから専用画面（FR-2.17）へ遷移する。入力欄は、プレイリスト名で一覧を
@@ -34,31 +35,23 @@ function playlistArtworkHtml(playlist, artwork) {
 }
 
 /**
- * @param {HTMLElement} container
- * @param {Array<object>} playlists 各要素はartwork（FR-2.10の優先順位で解決済み）を含む
- * @param {{onOpen: Function, onCreateNew: Function}} actions
- */
-/**
- * 再生ボタン・カードの再生ボタンの表示を、再生状態（再生中／一時停止・停止）に合わせる。
+ * 再生ボタン・カードの再生ボタンの有効／無効と、再生開始待ち中の表示を更新する。
+ * 表示は常に「再生」で、再生中かどうかでは変えない。
  * @param {HTMLElement} container
  * @param {Array<object>} playlists
- * @param {{playlistId: (string|null), playing: boolean}} playback
  * @param {Set<string>} busyIds 再生を開始する処理の待ち中のプレイリストID
  */
-function applyPlaybackState(container, playlists, playback, busyIds) {
+function applyPlayButtons(container, playlists, busyIds) {
   container.querySelectorAll('.play-btn').forEach((btn) => {
     const id = btn.dataset.id;
     const playlist = playlists.find((p) => p.id === id);
     if (!playlist) return;
-    const playing = playback.playlistId === id && playback.playing;
-    const isCard = btn.classList.contains('last-play-btn');
-    btn.classList.toggle('playing', playing);
     btn.classList.toggle('busy', busyIds.has(id));
     btn.disabled = playlist.trackIds.length === 0 || busyIds.has(id);
-    btn.setAttribute('aria-label', `「${playlist.name}」を${playing ? '一時停止' : 'シャッフルで再生'}`);
-    btn.innerHTML = isCard
-      ? `${iconOnly(playing ? 'pause' : 'play')}<span>${playing ? '一時停止' : '再生'}</span>`
-      : iconOnly(playing ? 'pause' : 'play');
+    btn.setAttribute('aria-label', `「${playlist.name}」をシャッフルで再生`);
+    btn.innerHTML = btn.classList.contains('last-play-btn')
+      ? `${iconOnly('play')}<span>再生</span>`
+      : iconOnly('play');
   });
 }
 
@@ -66,14 +59,12 @@ function applyPlaybackState(container, playlists, playback, busyIds) {
  * @param {HTMLElement} container
  * @param {Array<object>} playlists 各要素はartwork（FR-2.10の優先順位で解決済み）を含む
  * @param {{onOpen: Function, onCreateNew: Function, onPlay: (playlistId: string) => Promise<void>}} actions
- *   onPlay：詳細画面を開かずに、そのプレイリストをシャッフルで再生する（再生中なら一時停止／再開する）。
+ *   onPlay：詳細画面を開かずに、そのプレイリストをシャッフルで最初から再生する（再生中でも最初から再生し直す）。
  *   失敗した場合は例外を投げる（メッセージを一覧の上部に表示する）
- * @param {{lastPlayedId?: (string|null), playback?: {playlistId: (string|null), playing: boolean}}} [state]
- * @returns {{setPlayback: (playback: {playlistId: (string|null), playing: boolean}) => void}}
+ * @param {{lastPlayedId?: (string|null)}} [state]
  */
 export function renderPlaylistList(container, playlists, actions, state = {}) {
   let filterTerm = '';
-  let playback = state.playback || { playlistId: null, playing: false };
   const busyIds = new Set();
   const lastPlayedId = state.lastPlayedId || null;
   let errorTimer = null;
@@ -96,14 +87,14 @@ export function renderPlaylistList(container, playlists, actions, state = {}) {
   async function play(id) {
     if (busyIds.has(id)) return;
     busyIds.add(id);
-    applyPlaybackState(container, playlists, playback, busyIds);
+    applyPlayButtons(container, playlists, busyIds);
     try {
       await actions.onPlay(id);
     } catch (err) {
       showError(`再生できませんでした（${err.message || err}）`);
     } finally {
       busyIds.delete(id);
-      applyPlaybackState(container, playlists, playback, busyIds);
+      applyPlayButtons(container, playlists, busyIds);
     }
   }
 
@@ -123,7 +114,6 @@ export function renderPlaylistList(container, playlists, actions, state = {}) {
           <div class="item-main">
             <div class="last-played-label">前回のプレイリスト</div>
             ${marqueeHtml(m.name)}
-            <div class="item-sub">${m.trackIds.length}曲・シャッフルで再生</div>
           </div>
         </button>
         <button type="button" class="play-btn pill-play-btn last-play-btn" data-id="${escapeHtml(m.id)}"></button>
@@ -161,7 +151,7 @@ export function renderPlaylistList(container, playlists, actions, state = {}) {
     listEl.querySelectorAll('.row-play-btn').forEach((btn) => {
       btn.addEventListener('click', () => play(btn.dataset.id));
     });
-    applyPlaybackState(container, playlists, playback, busyIds);
+    applyPlayButtons(container, playlists, busyIds);
   }
 
   container.innerHTML = `
@@ -186,12 +176,5 @@ export function renderPlaylistList(container, playlists, actions, state = {}) {
 
   renderLastPlayed();
   renderList();
-  applyPlaybackState(container, playlists, playback, busyIds);
-
-  return {
-    setPlayback(next) {
-      playback = next;
-      applyPlaybackState(container, playlists, playback, busyIds);
-    },
-  };
+  applyPlayButtons(container, playlists, busyIds);
 }

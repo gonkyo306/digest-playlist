@@ -39,7 +39,15 @@ function escapeHtml(str) {
 
 const PAGE_SIZE_FIRST = 25;
 const PAGE_SIZE_MORE = 50;
+const ICON_FADE_MS = 200; // 全曲追加・取り消しでアイコンを差し替えるときの、フェードの長さ（css/style.cssの.icon-fade-outと揃える）
 const SEARCH_DEBOUNCE_MS = 300; // ネットワーク通信を伴う曲検索は、入力が止まってから実行する
+
+/** 非表示（.icon-fade-out）で差し替えた要素を、次の描画後にフェードインさせる */
+function fadeIn(els) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    els.forEach((el) => el?.classList.remove('icon-fade-out'));
+  }));
+}
 
 function loadMoreIndicatorHtml() {
   return `<li class="load-more-indicator" aria-hidden="true">${iconOnly('more')}</li>`;
@@ -322,7 +330,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         ...currentDestination,
         trackIds: currentDestination.trackIds.filter((id) => !removing.has(id)),
       };
-      rerenderCurrentStep();
+      rerender();
     });
     return addedIds;
   }
@@ -598,7 +606,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       });
     }
 
-    /** 全曲追加ボタンの表示を、追加先に未追加の曲が残っているかに合わせる（FR-1.24） */
+    /** 全曲追加ボタンの表示を、追加先に未追加の曲が残っているかに合わせる（FR-1.24）。
+     * アイコンが変わるときは、フェードアウトしてからフェードインで差し替える */
     function updateAddAllButton() {
       const btn = container.querySelector('#album-add-all-btn');
       if (!btn) return;
@@ -607,43 +616,88 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       const allAdded = currentDestination !== null && remaining === 0;
       btn.disabled = allAdded;
       btn.classList.toggle('all-added', allAdded);
-      btn.innerHTML = iconOnly(allAdded ? 'check' : 'playlistAdd');
       btn.setAttribute('aria-label', allAdded
         ? '全曲が追加済みです'
         : `${currentDestination ? `残り${remaining}曲` : '全曲'}を${currentDestination ? `「${currentDestination.name}」に` : 'プレイリストに'}追加`);
+      const icon = allAdded ? 'check' : 'playlistAdd';
+      if (btn.dataset.icon === icon) return;
+      const swap = () => {
+        btn.innerHTML = iconOnly(icon);
+        btn.dataset.icon = icon;
+      };
+      if (!btn.dataset.icon) {
+        swap(); // 初回の描画はアニメーションしない
+        return;
+      }
+      btn.firstElementChild?.classList.add('icon-fade-out');
+      setTimeout(() => {
+        if (!btn.isConnected) return;
+        swap();
+        fadeIn([btn.firstElementChild]);
+      }, ICON_FADE_MS);
     }
     const addAllBtn = container.querySelector('#album-add-all-btn');
     if (addAllBtn) {
       addAllBtn.addEventListener('click', async () => {
         addAllBtn.disabled = true; // 連打で二重に追加しない
-        await handleAddAll(albumTracks, () => { renderTrackList(); updateAddAllButton(); });
+        await handleAddAll(albumTracks, () => { renderTrackList({ fade: true }); updateAddAllButton(); });
         updateAddAllButton();
       });
     }
 
-    function renderTrackList() {
+    // 各行の追加ボタンの種別（'add'＝＋、'undo'＝取り消し可能、'added'＝追加済）。全曲追加・その取り消しで
+    // 種別が変わる行だけ、アイコンをフェードアウト→フェードインで差し替えるために覚えておく
+    let shownStates = [];
+    let renderSeq = 0;
+    const CONTROL_SELECTOR = '.toggle-add-btn, .added-badge, .added-check-wrap';
+    function rowState(t) {
+      if (justAddedIds.has(t.id)) return 'undo';
+      return currentDestination && currentDestination.trackIds.includes(t.id) ? 'added' : 'add';
+    }
+
+    function renderTrackList({ fade = false } = {}) {
       const listEl = container.querySelector('#album-track-results');
       if (!listEl) return; // mountDestinationHeaderの解決待ち中に画面遷移済み
-      const addedIds = currentDestination ? new Set(currentDestination.trackIds) : new Set();
-      listEl.innerHTML = albumTracks
-        .map((t, i) => compactTrackRowHtml(t, i, {
-          added: addedIds.has(t.id) && !justAddedIds.has(t.id),
-          justAdded: justAddedIds.has(t.id),
-        }))
-        .join('');
-      bindTrackRowEvents(listEl, albumTracks, {
-        previewPlayer,
-        onAdd: async (track) => {
-          const result = await handleInstantAdd(track);
-          updateAddAllButton();
-          return result;
-        },
-        onRemove: async (track) => {
-          const result = await handleInstantRemove(track);
-          updateAddAllButton();
-          return result;
-        },
-      });
+      const seq = ++renderSeq;
+      const controlOf = (i) => listEl.querySelector(`.track-item[data-index="${i}"]`)?.querySelector(CONTROL_SELECTOR);
+      const paint = () => {
+        const states = albumTracks.map(rowState);
+        listEl.innerHTML = albumTracks
+          .map((t, i) => compactTrackRowHtml(t, i, {
+            added: states[i] === 'added',
+            justAdded: states[i] === 'undo',
+          }))
+          .join('');
+        bindTrackRowEvents(listEl, albumTracks, {
+          previewPlayer,
+          onAdd: async (track) => {
+            const result = await handleInstantAdd(track);
+            updateAddAllButton();
+            return result;
+          },
+          onRemove: async (track) => {
+            const result = await handleInstantRemove(track);
+            updateAddAllButton();
+            return result;
+          },
+        });
+        return states;
+      };
+      const changed = fade
+        ? albumTracks.map((t, i) => (rowState(t) !== shownStates[i] ? i : -1)).filter((i) => i >= 0)
+        : [];
+      if (changed.length === 0) {
+        shownStates = paint();
+        return;
+      }
+      changed.forEach((i) => controlOf(i)?.classList.add('icon-fade-out'));
+      setTimeout(() => {
+        if (seq !== renderSeq || !listEl.isConnected) return; // 新しい描画が始まっていた・画面遷移済み
+        shownStates = paint();
+        const fresh = changed.map((i) => controlOf(i)).filter(Boolean);
+        fresh.forEach((el) => el.classList.add('icon-fade-out'));
+        fadeIn(fresh);
+      }, ICON_FADE_MS);
     }
     renderTrackList();
     updateAddAllButton();

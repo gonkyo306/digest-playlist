@@ -85,15 +85,6 @@ let playbackContext = null;
 // --- 直前に追加した先のプレイリストIDを記憶する（アプリのセッション内のみ） ---
 let lastUsedPlaylistId = null;
 
-/** プレイリスト一覧の再生ボタンに反映する再生状態（FR-2.9）。再生中のプレイリストと、実際に鳴っているか */
-function playbackForList() {
-  const playlistId = playbackContext?.type === 'playlist' ? playbackContext.playlistId : null;
-  return { playlistId, playing: !!currentPlayer && currentPlayer.playing && !currentPlayer.finished };
-}
-
-// プレイリスト一覧の表示（再生ボタンの状態を、描き直さずに更新するためのAPI）。一覧が表示中でないときはnull
-let playlistListApi = null;
-
 function disposeCurrentPlayer() {
   if (currentPlayer) currentPlayer.dispose();
   currentPlayer = null;
@@ -129,7 +120,6 @@ window.addEventListener('online', () => currentPlayer && currentPlayer.handleOnl
  */
 function reflectPlaybackState() {
   renderMiniPlayerBar();
-  if (playlistView.screen === 'list') playlistListApi?.setPlayback(playbackForList());
   // ロック画面・通知の再生/一時停止の表示も、画面（ミニプレイヤー）と同じ状態にそろえる
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = !currentPlayer ? 'none' : (currentPlayer.playing ? 'playing' : 'paused');
@@ -215,17 +205,11 @@ function goToPlaylistList() {
 }
 
 /**
- * プレイリスト一覧の再生ボタン・「前回のプレイリスト」カードから、詳細画面を開かずに再生する
- * （FR-2.9、FR-2.20）。再生中のプレイリストなら一時停止／再開し、それ以外は、全曲をシャッフルで
- * 最初から再生する。
+ * プレイリスト一覧の再生ボタン・「前回のプレイリスト」カードから、詳細画面を開かずに、全曲を
+ * シャッフルで最初から再生する（FR-2.9、FR-2.20）。再生中のプレイリストでも最初から再生し直す
+ * （一時停止はミニプレイヤーで行う）。
  */
 async function handlePlayFromList(playlistId) {
-  const isCurrent = playbackContext?.type === 'playlist' && playbackContext.playlistId === playlistId;
-  if (isCurrent && currentPlayer && !currentPlayer.finished && !currentPlayer.stopped) {
-    currentPlayer.togglePlayPause();
-    reflectPlaybackState();
-    return;
-  }
   const playlist = await getPlaylist(playlistId);
   if (!playlist || playlist.trackIds.length === 0) throw new Error('曲がありません');
   const { available } = await fetchTrackInfoByIds(playlist.trackIds);
@@ -240,7 +224,7 @@ async function showPlaylistList() {
   // FR-2.9：一覧の各行に代表画像を表示するため、表示前に解決しておく
   const artworkMap = await resolvePlaylistsArtwork(playlists, fetchTrackInfoByIds);
   const withArtwork = playlists.map((p) => ({ ...p, artwork: artworkMap.get(p.id) }));
-  playlistListApi = renderPlaylistList(playlistPaneEl, withArtwork, {
+  renderPlaylistList(playlistPaneEl, withArtwork, {
     onOpen: (id) => {
       playlistView = { screen: 'detail', playlistId: id };
       showPlaylistDetail(id);
@@ -248,7 +232,7 @@ async function showPlaylistList() {
     },
     onCreateNew: () => showPlaylistCreate(),
     onPlay: (id) => handlePlayFromList(id),
-  }, { lastPlayedId: getLastPlayedPlaylistId(), playback: playbackForList() });
+  }, { lastPlayedId: getLastPlayedPlaylistId() });
   renderMiniPlayerBar();
 }
 

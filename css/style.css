@@ -15,6 +15,8 @@
   --error-fg: #ffb4b4;
   /* プレイリストタブアイコンの2連符の色（ダークテーマは黒固定） */
   --tab-icon-note-color: #111318;
+  /* ページ上端の余白（ノッチ等のセーフエリアを避ける） */
+  --page-pad-top: max(16px, env(safe-area-inset-top));
 }
 @media (prefers-color-scheme: light) {
   :root {
@@ -41,7 +43,7 @@ html, body { overscroll-behavior: none; }
 body {
   margin: 0;
   padding: 16px;
-  padding-top: max(16px, env(safe-area-inset-top));
+  padding-top: var(--page-pad-top);
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   background: var(--bg);
   color: var(--fg);
@@ -228,6 +230,17 @@ h1 { font-size: 1.1rem; }
   align-items: center;
   justify-content: space-between;
 }
+/* 画面上部の見出し行（アイコン・追加先プレイリスト）は、下へスクロールしても画面上端に固定する。
+   ページ上端の余白（body）の分は、見出し行自身の上余白に取り込んで、スクロール前の見た目を変えない */
+.screen-header,
+.detail-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  margin-top: calc(-1 * var(--page-pad-top));
+  padding-top: var(--page-pad-top);
+}
 /* アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を8px→12pxに広げる（NFR-5.7） */
 .detail-topbar-actions { display: flex; gap: 0; }
@@ -296,6 +309,13 @@ h1 { font-size: 1.1rem; }
 /* アルバムの全曲追加ボタン（FR-1.24）：アクセントカラーのアイコン。全曲追加済みのときは薄く表示する */
 .add-all-btn { color: var(--accent); }
 .add-all-btn.all-added { opacity: 0.6; }
+/* 全曲追加・その取り消しで、アイコンを差し替えるときは、フェードアウトしてからフェードインさせる
+   （各行の＋／追加済と、全曲追加ボタンのアイコン。js側のICON_FADE_MSと揃える） */
+.toggle-add-btn,
+.added-badge,
+.added-check-wrap,
+.add-all-btn .icon-only { transition: opacity 0.2s ease; }
+.icon-fade-out { opacity: 0 !important; transition-duration: 0.2s; }
 
 /* 全曲追加後の通知（「N曲を〇〇に追加しました［取り消し］」）。ミニプレイヤー・タブバーの上に表示する */
 .snackbar {
@@ -608,7 +628,7 @@ h1 { font-size: 1.1rem; }
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 48px;
+  min-height: calc(48px + var(--page-pad-top));
 }
 .screen-header h1 { margin: 0; }
 
@@ -838,8 +858,6 @@ h1 { font-size: 1.1rem; }
   background: none;
   color: var(--accent);
 }
-/* 再生中は、アクセントカラーで塗りつぶして、一時停止アイコンを表示する */
-.row-play-btn.playing { background: var(--accent); color: var(--accent-fg); }
 .play-btn:disabled { opacity: 0.35; }
 .play-btn.busy { opacity: 0.6; }
 .last-played {
@@ -866,7 +884,6 @@ h1 { font-size: 1.1rem; }
 .last-played .artwork-sm { width: 72px; height: 72px; border-radius: 10px; }
 .last-played-label { color: var(--muted); font-size: 0.75rem; }
 .last-played .pill-play-btn { flex-shrink: 0; padding: 10px 18px; gap: 6px; }
-.last-played .pill-play-btn.playing { background: var(--btn-bg); color: var(--accent); }
 
 /* --- アルバム収録曲の簡易曲一覧 --- */
 /* 番号は左寄せにし、曲名との間隔を広めに取る（NFR-5.9） */
