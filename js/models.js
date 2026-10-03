@@ -55,6 +55,38 @@ export function addTrackToPlaylist(playlist, trackId) {
   };
 }
 
+/**
+ * プレイリストに複数の曲をまとめて追加する（アルバムの全曲追加。FR-1.24）。既にある曲（同一ID）は
+ * 飛ばし、新しく追加した曲のIDを、渡された順に返す（FR-2.6）。
+ * @param {object} playlist
+ * @param {Array<string|number>} trackIds
+ * @returns {{playlist: object, addedIds: Array<string|number>}}
+ */
+export function addTracksToPlaylist(playlist, trackIds) {
+  const existing = new Set(playlist.trackIds);
+  const addedIds = [];
+  trackIds.forEach((id) => {
+    if (existing.has(id)) return;
+    existing.add(id);
+    addedIds.push(id);
+  });
+  if (addedIds.length === 0) return { playlist, addedIds };
+  return {
+    playlist: { ...playlist, trackIds: [...playlist.trackIds, ...addedIds], updatedAt: Date.now() },
+    addedIds,
+  };
+}
+
+/** プレイリストから複数の曲をまとめて削除する（全曲追加の取り消し。FR-1.24） */
+export function removeTracksFromPlaylist(playlist, trackIds) {
+  const removing = new Set(trackIds);
+  return {
+    ...playlist,
+    trackIds: playlist.trackIds.filter((id) => !removing.has(id)),
+    updatedAt: Date.now(),
+  };
+}
+
 /** プレイリストから曲を削除する（FR-2.5） */
 export function removeTrackFromPlaylist(playlist, trackId) {
   return {

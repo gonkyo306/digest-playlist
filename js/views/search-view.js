@@ -60,6 +60,8 @@ function loadMoreIndicatorHtml() {
  *   onResolveArtwork: (playlist: object) => Promise<object>,
  *   onResolveArtworkForAll: (playlists: Array<object>) => Promise<Map<string, object>>,
  *   onAddTrack: (playlistId: string, trackId: (string|number)) => Promise<{added: boolean}>,
+ *   onAddTracks: (playlistId: string, trackIds: Array<string|number>) => Promise<{addedIds: Array<string|number>}>,
+ *   onRemoveTracks: (playlistId: string, trackIds: Array<string|number>) => Promise<void>,
  *   onCreatePlaylist: (name: string, imageBlob: (Blob|null)) => Promise<object>,
  * }} actions
  */
@@ -94,6 +96,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
   function enterStep(newMode) {
     if (mode !== newMode) justAddedIds = new Set();
     mode = newMode;
+    removeSnackbar();
   }
 
   function teardownObserver() {
@@ -219,8 +222,8 @@ export function renderSearchView(container, { previewPlayer }, actions) {
    * 表示する。キャンセルするとnullを返す。
    * @returns {Promise<object|null>} 新しい追加先（{id, name, trackIds, artwork}）。キャンセル時はnull
    */
-  async function promptCreateDestination() {
-    const name = await showCreatePlaylistPrompt();
+  async function promptCreateDestination(subject) {
+    const name = await showCreatePlaylistPrompt({ subject });
     if (!name) return null;
     const created = await actions.onCreatePlaylist(name, null);
     return { ...created, artwork: { source: 'none' } };
@@ -255,6 +258,73 @@ export function renderSearchView(container, { previewPlayer }, actions) {
     // 現在のステップ全体を再描画する（追加先を変更した場合と同じ扱い）
     if (justCreated) rerenderCurrentStep();
     return result;
+  }
+
+  // ------- アルバムの全曲追加（FR-1.24） -------
+
+  let snackTimer = null;
+
+  function removeSnackbar() {
+    clearTimeout(snackTimer);
+    container.querySelector('#add-all-snackbar')?.remove();
+  }
+
+  /** 「N曲を『○○』に追加しました［取り消し］」を、画面下部（ミニプレイヤー・タブバーの上）に表示する */
+  function showAddAllSnackbar(destination, addedIds, onUndo) {
+    removeSnackbar();
+    const bar = document.getElementById('bottom-bar');
+    const snack = document.createElement('div');
+    snack.id = 'add-all-snackbar';
+    snack.className = 'snackbar';
+    snack.setAttribute('role', 'status');
+    snack.innerHTML = `
+      <span class="snackbar-text">${addedIds.length}曲を「${escapeHtml(destination.name)}」に追加しました</span>
+      <button type="button" class="snackbar-action">取り消し</button>
+    `;
+    snack.style.bottom = `${(bar ? bar.offsetHeight : 60) + 12}px`;
+    container.appendChild(snack);
+    snack.querySelector('.snackbar-action').addEventListener('click', async () => {
+      removeSnackbar();
+      await onUndo();
+    });
+    snackTimer = setTimeout(removeSnackbar, 6000);
+  }
+
+  /**
+   * アルバムの全曲を、現在の追加先へまとめて追加する。既に追加先にある曲は飛ばす（FR-2.6）。
+   * 追加先プレイリストが1件も無い場合は、その場で作成するダイアログを表示してから追加する。
+   * @returns {Promise<Array<string|number>>} 新しく追加した曲のID（キャンセル・全曲追加済みなら空）
+   */
+  async function handleAddAll(albumTrackList, rerender) {
+    let justCreated = false;
+    if (!currentDestination) {
+      const created = await promptCreateDestination('このアルバムの全曲');
+      if (!created) return [];
+      currentDestination = created;
+      justAddedIds = new Set();
+      justCreated = true;
+    }
+    const destination = currentDestination;
+    const { addedIds } = await actions.onAddTracks(destination.id, albumTrackList.map((t) => t.id));
+    if (addedIds.length === 0) return [];
+    currentDestination = { ...destination, trackIds: [...destination.trackIds, ...addedIds] };
+    if (justCreated) {
+      currentDestination = { ...currentDestination, artwork: await actions.onResolveArtwork(currentDestination) };
+      rerenderCurrentStep(); // 右上の追加先表示を新しいプレイリストで更新する
+    } else {
+      rerender();
+    }
+    showAddAllSnackbar(currentDestination, addedIds, async () => {
+      if (!currentDestination || currentDestination.id !== destination.id) return;
+      await actions.onRemoveTracks(destination.id, addedIds);
+      const removing = new Set(addedIds);
+      currentDestination = {
+        ...currentDestination,
+        trackIds: currentDestination.trackIds.filter((id) => !removing.has(id)),
+      };
+      rerenderCurrentStep();
+    });
+    return addedIds;
   }
 
   /** 取り消し可能なチップ（FR-1.21）のタップで、その場で追加した曲の追加を取り消す */
@@ -504,6 +574,7 @@ export function renderSearchView(container, { previewPlayer }, actions) {
           <div class="hero-actions">
             <button type="button" id="album-shuffle-btn" class="icon-btn shuffle-btn" aria-label="シャッフル" aria-pressed="false">${iconOnly('shuffle')}</button>
             <button type="button" id="album-play-btn" class="pill-play-btn" aria-label="アルバムを全曲再生">${iconOnly('play')}<span>再生</span></button>
+            <button type="button" id="album-add-all-btn" class="icon-btn add-all-btn"></button>
           </div>
         `
             : ''
@@ -527,6 +598,29 @@ export function renderSearchView(container, { previewPlayer }, actions) {
       });
     }
 
+    /** 全曲追加ボタンの表示を、追加先に未追加の曲が残っているかに合わせる（FR-1.24） */
+    function updateAddAllButton() {
+      const btn = container.querySelector('#album-add-all-btn');
+      if (!btn) return;
+      const inDestination = new Set(currentDestination ? currentDestination.trackIds : []);
+      const remaining = albumTracks.filter((t) => !inDestination.has(t.id)).length;
+      const allAdded = currentDestination !== null && remaining === 0;
+      btn.disabled = allAdded;
+      btn.classList.toggle('all-added', allAdded);
+      btn.innerHTML = iconOnly(allAdded ? 'check' : 'playlistAdd');
+      btn.setAttribute('aria-label', allAdded
+        ? '全曲が追加済みです'
+        : `${currentDestination ? `残り${remaining}曲` : '全曲'}を${currentDestination ? `「${currentDestination.name}」に` : 'プレイリストに'}追加`);
+    }
+    const addAllBtn = container.querySelector('#album-add-all-btn');
+    if (addAllBtn) {
+      addAllBtn.addEventListener('click', async () => {
+        addAllBtn.disabled = true; // 連打で二重に追加しない
+        await handleAddAll(albumTracks, () => { renderTrackList(); updateAddAllButton(); });
+        updateAddAllButton();
+      });
+    }
+
     function renderTrackList() {
       const listEl = container.querySelector('#album-track-results');
       if (!listEl) return; // mountDestinationHeaderの解決待ち中に画面遷移済み
@@ -539,13 +633,22 @@ export function renderSearchView(container, { previewPlayer }, actions) {
         .join('');
       bindTrackRowEvents(listEl, albumTracks, {
         previewPlayer,
-        onAdd: (track) => handleInstantAdd(track),
-        onRemove: (track) => handleInstantRemove(track),
+        onAdd: async (track) => {
+          const result = await handleInstantAdd(track);
+          updateAddAllButton();
+          return result;
+        },
+        onRemove: async (track) => {
+          const result = await handleInstantRemove(track);
+          updateAddAllButton();
+          return result;
+        },
       });
     }
     renderTrackList();
+    updateAddAllButton();
 
-    mountDestinationHeader(rerenderCurrentStep, renderTrackList);
+    mountDestinationHeader(rerenderCurrentStep, () => { renderTrackList(); updateAddAllButton(); });
   }
 
   renderResultsStep();

@@ -34,6 +34,8 @@ const ICONS = {
   playlistTab: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="tab-icon-peek2" x="6.3" y="0.7" width="17" height="17" rx="5.4"/><rect class="tab-icon-peek1" x="3.9" y="3.1" width="17" height="17" rx="5.4"/><rect class="tab-icon-frame" x="1.5" y="5.5" width="17" height="17" rx="5.4"/><g class="tab-icon-notes" transform="translate(10,14) scale(.895) translate(-12,-12)"><polygon points="7.4,11.0 7.4,8.4 16.6,6.8 16.6,9.4"/><rect x="7.4" y="8.4" width="1.4" height="8.0"/><rect x="15.2" y="7.05" width="1.4" height="8.0"/><ellipse cx="7.1" cy="16.4" rx="2.1" ry="1.6" transform="rotate(-15 7.1 16.4)"/><ellipse cx="14.9" cy="15.05" rx="2.1" ry="1.6" transform="rotate(-10 14.9 15.05)"/></g></svg>',
   // 追加直後の取り消し操作のアイコン（反時計回りの巻き戻しアイコン）。隙間を約60度取り、
   // 円が閉じていないことを分かりやすくしている
+  // アルバムの全曲をプレイリストに追加するアイコン（FR-1.24）
+  playlistAdd: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M14 10H3v2h11v-2zm0-4H3v2h11V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM3 16h7v-2H3v2z"/></svg>',
   rewind: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M5.07 16A8 8 0 1 0 5.07 8"/><path fill="currentColor" d="M2.57 12.33L7.67 9.5 2.47 6.5Z"/></svg>',
 };
 

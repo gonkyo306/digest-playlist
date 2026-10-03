@@ -288,9 +288,44 @@ h1 { font-size: 1.1rem; }
 /* シャッフルボタンは完全な円形にする。
    アイコンボタンは背景のカードを持たない（NFR-5.7）が、ON/OFFのトグルボタンのため、
    このボタンだけはカード背景を付ける（NFR-5.7の例外） */
-.shuffle-btn {
+.shuffle-btn,
+.add-all-btn {
   border-radius: 50%;
   background: var(--btn-bg);
+}
+/* アルバムの全曲追加ボタン（FR-1.24）：アクセントカラーのアイコン。全曲追加済みのときは薄く表示する */
+.add-all-btn { color: var(--accent); }
+.add-all-btn.all-added { opacity: 0.6; }
+
+/* 全曲追加後の通知（「N曲を〇〇に追加しました［取り消し］」）。ミニプレイヤー・タブバーの上に表示する */
+.snackbar {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  max-width: 448px;
+  margin: 0 auto;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 8px 0 16px;
+  border-radius: 12px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+.snackbar-text { min-width: 0; }
+.snackbar-action {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 /* --- プレイリスト詳細の編集モード ---
@@ -788,6 +823,50 @@ h1 { font-size: 1.1rem; }
 
 /* --- アルバムの全曲一時再生（FR-1.11） --- */
 .shuffle-btn.active { background: var(--accent); color: var(--accent-fg); }
+
+/* --- プレイリスト一覧の再生ボタン（行の右端。FR-2.9）と、前回のプレイリストのカード（FR-2.20） --- */
+.row-play-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: none;
+  color: var(--accent);
+}
+/* 再生中は、アクセントカラーで塗りつぶして、一時停止アイコンを表示する */
+.row-play-btn.playing { background: var(--accent); color: var(--accent-fg); }
+.play-btn:disabled { opacity: 0.35; }
+.play-btn.busy { opacity: 0.6; }
+.last-played {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--card);
+}
+.last-played-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+}
+.last-played .artwork-sm { width: 72px; height: 72px; border-radius: 10px; }
+.last-played-label { color: var(--muted); font-size: 0.75rem; }
+.last-played .pill-play-btn { flex-shrink: 0; padding: 10px 18px; gap: 6px; }
+.last-played .pill-play-btn.playing { background: var(--btn-bg); color: var(--accent); }
 
 /* --- アルバム収録曲の簡易曲一覧 --- */
 /* 番号は左寄せにし、曲名との間隔を広めに取る（NFR-5.9） */

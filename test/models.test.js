@@ -5,6 +5,8 @@ import {
   renamePlaylist,
   setPlaylistImage,
   addTrackToPlaylist,
+  addTracksToPlaylist,
+  removeTracksFromPlaylist,
   removeTrackFromPlaylist,
   isDuplicateTrack,
   isValidPlaylist,
@@ -121,4 +123,27 @@ test('isValidPlaylist: coverImageが未設定・null・Blobのいずれも有効
 
 test('isValidPlaylist: coverImageがBlob以外（文字列等）なら無効', () => {
   assert.equal(isValidPlaylist({ id: '1', name: 'x', trackIds: [], coverImage: 'not-a-blob' }), false);
+});
+
+test('addTracksToPlaylist: 既にある曲は飛ばして、新しい曲だけを渡された順に追加する (FR-1.24, FR-2.6)', () => {
+  let m = createPlaylist('通勤用');
+  m = addTrackToPlaylist(m, 2).playlist;
+  const result = addTracksToPlaylist(m, [1, 2, 3, 3]);
+  assert.deepEqual(result.addedIds, [1, 3], '重複（既存・入力内の重複）は飛ばす');
+  assert.deepEqual(result.playlist.trackIds, [2, 1, 3]);
+});
+
+test('addTracksToPlaylist: 全て追加済みなら、何も変更せずそのまま返す', () => {
+  let m = createPlaylist('通勤用');
+  m = addTrackToPlaylist(m, 1).playlist;
+  const result = addTracksToPlaylist(m, [1]);
+  assert.deepEqual(result.addedIds, []);
+  assert.equal(result.playlist, m);
+});
+
+test('removeTracksFromPlaylist: 指定した曲をまとめて削除する（全曲追加の取り消し。FR-1.24）', () => {
+  let m = createPlaylist('通勤用');
+  m = addTracksToPlaylist(m, [1, 2, 3, 4]).playlist;
+  const result = removeTracksFromPlaylist(m, [2, 4]);
+  assert.deepEqual(result.trackIds, [1, 3]);
 });
