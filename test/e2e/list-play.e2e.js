@@ -1,7 +1,7 @@
 // プレイリスト一覧からのすぐ再生（FR-2.9 の再生ボタン、FR-2.20 の前回のプレイリストカード）のE2Eテスト
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startServer, launchBrowser, openApp, playlist } from './helpers.js';
+import { startServer, launchBrowser, openApp, playlist, fakeTrack } from './helpers.js';
 
 let server; let origin; let browser;
 before(async () => {
@@ -34,21 +34,26 @@ test('各行の右端に再生ボタンがあり、曲が0件のプレイリス�
   await context.close();
 });
 
-test('再生ボタンで、詳細画面を開かずに再生が始まり、ミニプレイヤーが出る。もう一度押すと一時停止・再開する', async () => {
+test('再生ボタンで、詳細画面を開かずに再生が始まる。再生中も「再生」の表示のままで、押すと最初から再生し直す', async () => {
   const { page, context, errors } = await openApp(browser, origin, { playlists: LISTS });
   assert.equal(await miniVisible(page), false, '最初はミニプレイヤーが無い');
+  const labelBefore = await rowBtn(page, '通勤用').getAttribute('aria-label');
   await rowBtn(page, '通勤用').click();
-  await page.waitForFunction(() => document.querySelector('.row-play-btn.playing'), null, { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止', null, { timeout: 5000 });
   assert.equal(await page.locator('#playlist-list').count(), 1, '一覧画面のまま（詳細画面を開かない）');
   assert.equal(await miniVisible(page), true, 'ミニプレイヤーが表示される');
-  assert.equal(await page.locator('.row-play-btn.playing').count(), 1, '再生中の行だけが再生中の表示');
-  assert.match(await rowBtn(page, '通勤用').getAttribute('aria-label'), /一時停止/);
+  // 再生が始まっても、一覧の再生ボタンは「再生」のまま（一時停止の表示にはならない）
+  assert.equal(await rowBtn(page, '通勤用').getAttribute('aria-label'), labelBefore);
+  assert.equal(await page.locator('.row-play-btn.playing').count(), 0);
+  assert.equal(await rowBtn(page, '通勤用').locator('svg path').first().getAttribute('d'), await rowBtn(page, '夜のドライブ').locator('svg path').first().getAttribute('d'), '全行が同じ再生アイコン');
 
-  await rowBtn(page, '通勤用').click(); // 一時停止
-  await page.waitForFunction(() => !document.querySelector('.row-play-btn.playing'));
-  assert.match(await rowBtn(page, '通勤用').getAttribute('aria-label'), /シャッフルで再生/);
-  await rowBtn(page, '通勤用').click(); // 再開
-  await page.waitForFunction(() => document.querySelector('.row-play-btn.playing'));
+  // 一時停止はミニプレイヤーで行う
+  await page.click('.mini-playpause');
+  await page.waitForFunction(() => document.querySelector('.mini-playpause').getAttribute('aria-label') === '再生');
+  // 一覧の再生ボタンを押すと、一時停止のままではなく、最初から再生し直す
+  await rowBtn(page, '通勤用').click();
+  await page.waitForFunction(() => document.querySelector('.mini-playpause').getAttribute('aria-label') === '一時停止', null, { timeout: 5000 });
+  assert.equal(await rowBtn(page, '通勤用').getAttribute('aria-label'), labelBefore);
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -56,11 +61,12 @@ test('再生ボタンで、詳細画面を開かずに再生が始まり、ミ�
 test('別のプレイリストの再生ボタンを押すと、そちらの再生に切り替わる', async () => {
   const { page, context } = await openApp(browser, origin, { playlists: LISTS });
   await rowBtn(page, '通勤用').click();
-  await page.waitForFunction(() => document.querySelector('.row-play-btn.playing'));
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
   await rowBtn(page, '夜のドライブ').click();
-  await page.waitForFunction(() => document.querySelector('.list-item[data-id="p3"] .row-play-btn.playing'));
-  assert.equal(await page.locator('.row-play-btn.playing').count(), 1);
-  assert.equal(await rowBtn(page, '通勤用').getAttribute('aria-label').then((l) => /シャッフルで再生/.test(l)), true);
+  await page.waitForFunction(() => localStorage.getItem('digest-playlist:last-played-playlist-id') === 'p3');
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
+  assert.ok((await page.textContent('#mini-player')).includes(fakeTrack(3).trackName), '切り替え先のプレイリストの曲が再生される');
+  assert.equal(await page.locator('.row-play-btn.playing').count(), 0);
   await context.close();
 });
 
@@ -76,30 +82,31 @@ test('前回のプレイリストカード：再生したことがなければ�
   const { page, context } = await openApp(browser, origin, { playlists: LISTS });
   assert.equal(await page.locator('.last-played').count(), 0, '再生履歴が無ければ出ない');
   await rowBtn(page, '通勤用').click();
-  await page.waitForFunction(() => document.querySelector('.row-play-btn.playing'));
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
 
   await page.reload(); // 次回起動
   await page.waitForSelector('.last-played');
   assert.match(await page.textContent('.last-played'), /前回のプレイリスト/);
   assert.match(await page.textContent('.last-played'), /通勤用/);
-  assert.match(await page.textContent('.last-played'), /3曲・シャッフルで再生/);
+  assert.doesNotMatch(await page.textContent('.last-played'), /曲|シャッフルで再生/, '曲数・再生方法は表示しない');
   const card = await page.locator('.last-played').boundingBox();
   const first = await page.locator('.list-item').first().boundingBox();
   assert.ok(card.y < first.y, '一覧の先頭（行より上）にある');
   assert.equal(await miniVisible(page), false, '再読み込みで再生は止まっている');
 
   await page.locator('.last-play-btn').click();
-  await page.waitForFunction(() => document.querySelector('.last-play-btn.playing'));
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
   assert.equal(await page.locator('#playlist-list').count(), 1, '一覧画面のまま');
   assert.equal(await miniVisible(page), true);
-  assert.equal(await page.locator('.list-item[data-id="p1"] .row-play-btn.playing').count(), 1, '行の再生ボタンにも反映される');
+  assert.match(await page.textContent('.last-play-btn'), /再生/);
+  assert.doesNotMatch(await page.textContent('.last-play-btn'), /一時停止/, '再生中も「再生」の表示のまま');
   await context.close();
 });
 
 test('前回のプレイリストカード：本体をタップすると詳細画面が開き、名前で絞り込み中は出ない', async () => {
   const { page, context } = await openApp(browser, origin, { playlists: LISTS });
   await rowBtn(page, '通勤用').click();
-  await page.waitForFunction(() => document.querySelector('.row-play-btn.playing'));
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
   await page.reload();
   await page.waitForSelector('.last-played');
   await page.fill('#playlist-search-term', '夜');

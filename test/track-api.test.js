@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLookupUrl, parseLookupResponse } from '../js/track-api.js';
+import { buildLookupUrl, parseLookupResponse, fetchTrackInfoByIds, chunk, LOOKUP_BATCH_SIZE } from '../js/track-api.js';
 
 // 通信そのもの（fetch）はUnitテストの対象外とし、URLの組み立てとレスポンス解釈のみを検証する。
 
@@ -78,4 +78,51 @@ test('parseLookupResponse: collectionName・trackNumberが無い場合は空文�
   const { available } = parseLookupResponse(json, ['111']);
   assert.equal(available[0].album, '');
   assert.equal(available[0].trackNumber, null);
+});
+
+test('chunk: 指定件数ずつに分け、余りも残す', () => {
+  assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  assert.deepEqual(chunk([], 3), []);
+});
+
+/** fetchを差し替えて、Lookup APIの呼び出しを記録する（IDごとに曲を返す） */
+async function withFakeFetch(handler, fn) {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    const ids = new URL(url).searchParams.get('id').split(',');
+    calls.push(ids);
+    return handler(ids);
+  };
+  try {
+    return await fn(calls);
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+const okResponse = (ids, skip = () => false) => ({
+  ok: true,
+  json: async () => ({
+    results: ids.filter((id) => !skip(id)).map((id) => ({
+      wrapperType: 'track', trackId: Number(id), trackName: `曲${id}`, artistName: 'A', previewUrl: `http://x/${id}`, artworkUrl100: 'a',
+    })),
+  }),
+});
+
+test('fetchTrackInfoByIds: 700曲でも、分割して取得し、IDの順序のまま1つにまとめる（FR-2.7）', async () => {
+  const ids = Array.from({ length: 700 }, (_, i) => String(1000 + i));
+  await withFakeFetch((req) => okResponse(req, (id) => id === '1005'), async (calls) => {
+    const { available, unavailableIds } = await fetchTrackInfoByIds(ids);
+    assert.ok(calls.length >= 7 && calls.every((c) => c.length <= LOOKUP_BATCH_SIZE), '1回あたりの件数が上限以内');
+    assert.equal(available.length, 699);
+    assert.deepEqual(available.map((t) => String(t.id)), ids.filter((id) => id !== '1005'), '元の順序を保つ');
+    assert.deepEqual(unavailableIds, ['1005']);
+  });
+});
+
+test('fetchTrackInfoByIds: 分割した呼び出しのどれかが失敗したら、例外を投げる', async () => {
+  let n = 0;
+  await withFakeFetch((req) => (++n === 2 ? { ok: false, status: 503 } : okResponse(req)), async () => {
+    await assert.rejects(fetchTrackInfoByIds(Array.from({ length: 350 }, (_, i) => String(i + 1))), /503/);
+  });
 });

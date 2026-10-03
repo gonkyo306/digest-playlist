@@ -41,8 +41,44 @@ test('タップすると、追加先に全曲が追加され、通知に曲数�
   await page.waitForSelector('#add-all-snackbar');
   assert.match(await page.textContent('#add-all-snackbar'), /4曲を「通勤用」に追加しました/);
   assert.equal((await readPlaylists(page))[0].trackIds.length, 4);
+  await page.waitForFunction(() => document.querySelectorAll('#album-track-results .added-badge').length === 4);
   assert.equal(await page.locator('#album-track-results .added-badge').count(), 4, '全行が「追加済」');
+  await page.waitForFunction(() => document.querySelector('#album-add-all-btn').dataset.icon === 'check');
   assert.equal(await page.locator('#album-add-all-btn').isDisabled(), true, '全曲追加済みなので押せない');
+  await context.close();
+});
+
+const iconOpacity = (page) => page.$eval('#album-add-all-btn .icon-only', (e) => Number(getComputedStyle(e).opacity));
+const badgeOpacities = (page) => page.$$eval('#album-track-results .added-badge', (els) => els.map((e) => Number(getComputedStyle(e).opacity)));
+
+test('全曲追加・取り消しのアイコンは、フェードアウトしてからフェードインで切り替わる', async () => {
+  const { page, context, errors } = await openApp(browser, origin, { playlists: [playlist('p1', '通勤用', [])] });
+  await openAlbum(page);
+  assert.equal(await page.locator('#album-track-results .toggle-add-btn').count(), 4);
+  await page.click('#album-add-all-btn');
+  // フェードアウト中：まだ古いアイコン（＋）のまま、薄くなっていく
+  await page.waitForFunction(() => document.querySelector('#album-track-results .toggle-add-btn.icon-fade-out'));
+  await page.waitForFunction(() => document.querySelector('#album-add-all-btn .icon-only.icon-fade-out'));
+  // 差し替え後：新しいアイコン（追加済）が、透明な状態から現れる
+  await page.waitForFunction(() => document.querySelector('#album-track-results .added-badge'));
+  assert.equal(await page.locator('#album-track-results .toggle-add-btn').count(), 0);
+  // フェードイン完了後：すべて不透明に戻る
+  await page.waitForFunction(() => !document.querySelector('.icon-fade-out'));
+  await page.waitForTimeout(300);
+  assert.deepEqual(await badgeOpacities(page), [1, 1, 1, 1]);
+  assert.equal(await iconOpacity(page), 1);
+
+  // 取り消しも同様
+  await page.click('.snackbar-action');
+  await page.waitForFunction(() => document.querySelector('#album-track-results .added-badge.icon-fade-out'));
+  await page.waitForFunction(() => document.querySelectorAll('#album-track-results .toggle-add-btn').length === 4);
+  await page.waitForFunction(() => !document.querySelector('.icon-fade-out'));
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('#album-track-results .added-badge').count(), 0);
+  assert.equal(await page.$eval('#album-add-all-btn', (e) => e.dataset.icon), 'playlistAdd');
+  assert.equal(await iconOpacity(page), 1);
+  assert.equal(await page.locator('#album-add-all-btn').isDisabled(), false);
+  assert.deepEqual(errors, []);
   await context.close();
 });
 

@@ -76,11 +76,12 @@ export async function launchBrowser() {
  * アプリを開く。iTunes APIはモックに差し替える（検索結果は全トラック、lookupはIDに一致するトラックを返す）。
  * @param {import('playwright').Browser} browser
  * @param {string} origin
- * @param {{playlists?: Array<object>, tracks?: Array<object>}} [options] 保存しておくプレイリストと、APIが返す曲
+ * @param {{playlists?: Array<object>, tracks?: Array<object>, viewport?: {width: number, height: number}}} [options]
+ *   保存しておくプレイリストと、APIが返す曲、画面の大きさ
  */
-export async function openApp(browser, origin, { playlists = [], tracks = [0, 1, 2, 3].map((i) => fakeTrack(i)) } = {}) {
+export async function openApp(browser, origin, { playlists = [], tracks = [0, 1, 2, 3].map((i) => fakeTrack(i)), viewport = { width: 390, height: 780 } } = {}) {
   const context = await browser.newContext({
-    viewport: { width: 390, height: 780 }, colorScheme: 'dark', deviceScaleFactor: 2, serviceWorkers: 'block',
+    viewport, colorScheme: 'dark', deviceScaleFactor: 2, serviceWorkers: 'block',
   });
   const page = await context.newPage();
   const errors = [];
@@ -94,6 +95,7 @@ export async function openApp(browser, origin, { playlists = [], tracks = [0, 1,
     let results = tracks;
     if (u.pathname.endsWith('/lookup')) {
       const ids = (u.searchParams.get('id') || '').split(',');
+      if (ids.length > 200) return r.abort('failed'); // 実際のLookup APIは、IDが多すぎる（200件超）と失敗する
       results = u.searchParams.get('entity') === 'song' && ids.includes(String(ALBUM_ID))
         ? [ALBUM, ...tracks] // アルバムの収録曲
         : tracks.filter((t) => ids.includes(String(t.trackId)));
