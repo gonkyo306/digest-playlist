@@ -95,6 +95,7 @@ export async function openApp(browser, origin, { playlists = [], tracks = [0, 1,
     let results = tracks;
     if (u.pathname.endsWith('/lookup')) {
       const ids = (u.searchParams.get('id') || '').split(',');
+      if (ids.length > 200) return r.abort('failed'); // 実際のLookup APIは、IDが多すぎる（200件超）と失敗する
       results = u.searchParams.get('entity') === 'song' && ids.includes(String(ALBUM_ID))
         ? [ALBUM, ...tracks] // アルバムの収録曲
         : tracks.filter((t) => ids.includes(String(t.trackId)));

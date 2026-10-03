@@ -58,17 +58,47 @@ export function parseLookupResponse(json, requestedIds) {
   return { available, unavailableIds };
 }
 
+/** 1回のLookup API呼び出しに含める曲IDの上限。IDを全部URLに載せると、数百曲のプレイリストでURLが長すぎて通信に失敗するため */
+export const LOOKUP_BATCH_SIZE = 100;
+/** 同時に呼び出すLookup APIの数 */
+const LOOKUP_CONCURRENCY = 4;
+
 /**
- * 実際にAPIを呼び出して、曲情報を取得する。
+ * 配列を指定件数ずつに分ける。
+ * @template T
+ * @param {Array<T>} items
+ * @param {number} size
+ * @returns {Array<Array<T>>}
+ */
+export function chunk(items, size) {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * 実際にAPIを呼び出して、曲情報を取得する。曲数が多い場合は、LOOKUP_BATCH_SIZE件ずつに分けて
+ * 複数回呼び出し、結果をIDの順序のまま1つにまとめる。いずれかの呼び出しが失敗したら例外を投げる。
  * @param {Array<string|number>} ids
  * @param {string} [country]
  * @returns {Promise<{available: Array<object>, unavailableIds: Array<string|number>}>}
  */
 export async function fetchTrackInfoByIds(ids, country = 'jp') {
   if (!ids || ids.length === 0) return { available: [], unavailableIds: [] };
-  const url = buildLookupUrl(ids, country);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`曲情報の取得に失敗しました (status: ${res.status})`);
-  const json = await res.json();
-  return parseLookupResponse(json, ids);
+  const batches = chunk(ids, LOOKUP_BATCH_SIZE);
+  const parts = new Array(batches.length);
+  let next = 0;
+  async function worker() {
+    while (next < batches.length) {
+      const i = next++;
+      const res = await fetch(buildLookupUrl(batches[i], country));
+      if (!res.ok) throw new Error(`曲情報の取得に失敗しました (status: ${res.status})`);
+      parts[i] = parseLookupResponse(await res.json(), batches[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(LOOKUP_CONCURRENCY, batches.length) }, worker));
+  return {
+    available: parts.flatMap((p) => p.available),
+    unavailableIds: parts.flatMap((p) => p.unavailableIds),
+  };
 }
