@@ -122,6 +122,7 @@ export function renderPlaylistDetail(container, { playlist, tracks: rawTracks, f
             ${heroArtworkUrl
               ? `<img src="${escapeHtml(heroArtworkUrl)}" alt="" class="hero-artwork">`
               : `<div class="hero-artwork hero-artwork-placeholder">${iconOnly('disc')}</div>`}
+            <span class="hero-camera-badge" aria-hidden="true">${iconOnly('camera')}</span>
           </button>
           <input type="file" id="hero-image-file-input" accept="image/*" hidden>
         ` : (heroArtworkUrl

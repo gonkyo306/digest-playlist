@@ -333,7 +333,28 @@ h1 { font-size: 1.1rem; }
   display: block;
   line-height: 0;
 }
-.hero-image-picker-btn .hero-artwork { display: block; }
+.hero-image-picker-btn img.hero-artwork { display: block; }
+.hero-image-picker-btn { position: relative; }
+/* フェーズ44：編集モードでは、ジャケット（またはその仮画像）の中央にカメラアイコンを重ねて、画像を変更できることを示す */
+.hero-camera-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  pointer-events: none;
+}
+.hero-camera-badge svg { width: 26px; height: 26px; }
+/* 画像が未設定のときの仮画像（ディスクのアイコン）は、カメラアイコンと重なって見づらいため、編集モード中は
+   灰色の枠だけにしてカメラアイコンを見せる（作成シートの画像選択欄と同じ見え方） */
+.hero-image-picker-btn .hero-artwork-placeholder svg { visibility: hidden; }
 
 /* --- フェーズ23：検索結果の＋トグルボタン・編集モードのマイナスボタン。
    小さめの丸ボタンとし、行の右端に配置する（フェーズ28／CR-048で行の意匠がカードから
@@ -724,14 +745,8 @@ h1 { font-size: 1.1rem; }
   white-space: nowrap;
 }
 .marquee-track .marquee-text { padding-right: var(--marquee-gap, 0px); flex-shrink: 0; }
-.marquee.scrolling .marquee-track {
-  /* フェーズ43：初期表示から1秒後に開始する（繰り返しの2周目以降は待たない） */
-  animation: marquee-scroll var(--marquee-duration, 8s) linear 1s infinite;
-}
-@keyframes marquee-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
+/* フェーズ44：スクロールの動き（1秒静止→流す→初期位置に戻して繰り返し）は、marquee.jsがWeb Animations APIで
+   組み立てて実行する（.scrollingは動作中の目印） */
 
 /* --- フェーズ28（CR-043）：プレイリスト作成画面（FR-2.17） --- */
 /* フェーズ41：プレイリスト作成画面は、画面下からスライドして現れるシート（.dialog-box共通の
@@ -783,6 +798,8 @@ h1 { font-size: 1.1rem; }
 .create-name-input {
   display: block;
   width: 100%;
+  /* フェーズ44：プレイリスト名は中央揃え（入力中・プレースホルダーとも） */
+  text-align: center;
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
