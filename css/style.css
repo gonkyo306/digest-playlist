@@ -597,24 +597,21 @@ h1 { font-size: 1.1rem; }
   padding: 8px 12px;
 }
 #mini-player.visible { display: flex; }
-.mini-player-tap {
+.mini-player-info {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  background: none;
-  border: none;
   color: var(--fg);
   text-align: left;
-  padding: 0;
 }
 /* アイコンのカード背景を外したことで隣接ボタンが窮屈に見えないよう、
    間隔を4px→10pxに広げる（NFR-5.7） */
 .mini-player-controls { display: flex; gap: 10px; flex-shrink: 0; }
 /* 再生／一時停止・次へのアイコンをひと回り大きくする。
    タップ領域（.icon-btnのmin-width/min-height、NFR-5.2）は変更しない。
-   .mini-player-controlsの幅が小さいため、.mini-player-tap（flex: 1）側の曲名・アーティスト名の
+   .mini-player-controlsの幅が小さいため、.mini-player-info（flex: 1）側の曲名・アーティスト名の
    表示幅を広く取れる */
 .mini-player-controls .icon-only svg { width: 26px; height: 26px; }
 
@@ -845,19 +842,8 @@ h1 { font-size: 1.1rem; }
 .shuffle-btn.active { background: var(--accent); color: var(--accent-fg); }
 
 /* --- プレイリスト一覧の再生ボタン（行の右端。FR-2.9）と、前回のプレイリストのカード（FR-2.20） --- */
-.row-play-btn {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid var(--accent);
-  border-radius: 50%;
-  background: none;
-  color: var(--accent);
-}
+/* 行の再生ボタンも、前回のプレイリストのカードの再生ボタンと同じ、アクセントカラーのピル型 */
+.play-btn.pill-play-btn { flex-shrink: 0; padding: 10px 18px; gap: 6px; }
 .play-btn:disabled { opacity: 0.35; }
 .play-btn.busy { opacity: 0.6; }
 .last-played {
@@ -883,7 +869,6 @@ h1 { font-size: 1.1rem; }
 }
 .last-played .artwork-sm { width: 72px; height: 72px; border-radius: 10px; }
 .last-played-label { color: var(--muted); font-size: 0.75rem; }
-.last-played .pill-play-btn { flex-shrink: 0; padding: 10px 18px; gap: 6px; }
 
 /* --- アルバム収録曲の簡易曲一覧 --- */
 /* 番号は左寄せにし、曲名との間隔を広めに取る（NFR-5.9） */

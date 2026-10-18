@@ -1,7 +1,8 @@
 // プレイリスト一覧画面（起動後の最初の画面、FR-2.8）
 // 名前変更・削除は、この一覧の各行からは行わず、詳細画面の右上で行う（FR-2.2, FR-2.3）。
-// 各行は、プレイリストを開くタップ操作と、行の右端の再生ボタン（詳細画面を開かずにシャッフル再生。
-// FR-2.9）を持つ。再生ボタンは常に「再生」の表示で、再生中に押すと最初から再生し直す
+// 各行は、プレイリストを開くタップ操作と、行の右端の再生ボタン（前回のプレイリストのカードと同じ
+// ピル型。詳細画面を開かずにシャッフル再生。FR-2.9）を持つ。
+// 再生ボタンは常に「再生」の表示で、再生中に押すと最初から再生し直す
 // （一時停止はミニプレイヤーで行う）。先頭には、前回再生したプレイリストのカード（FR-2.20）を出す。
 // 見出しをscreen-headerクラスで囲み、検索画面の見出しと高さを揃えることで、直下の入力欄（検索語）の
 // 表示位置がタブ間でずれないようにする。
@@ -12,6 +13,7 @@
 
 import { iconOnly } from './icons.js';
 import { blobToUrl } from '../blob-url-cache.js';
+import { largeArtworkUrl } from '../artwork-url.js';
 import { marqueeHtml, setupMarquees } from '../marquee.js';
 
 function escapeHtml(str) {
@@ -24,12 +26,14 @@ function escapeHtml(str) {
  * @param {object} playlist
  * @param {{source: 'custom'|'track'|'none', blob?: Blob, url?: string}} [artwork]
  */
-function playlistArtworkHtml(playlist, artwork) {
+function playlistArtworkHtml(playlist, artwork, { size } = {}) {
   if (artwork?.source === 'custom' && artwork.blob) {
     return `<img src="${escapeHtml(blobToUrl(playlist.id, artwork.blob))}" alt="" class="artwork-sm">`;
   }
   if (artwork?.source === 'track' && artwork.url) {
-    return `<img src="${escapeHtml(artwork.url)}" alt="" class="artwork-sm">`;
+    // sizeを指定すると、大きく表示する場所向けに、高解像度の画像を取得する（100pxのまま拡大して粗くならないように）
+    const url = size ? largeArtworkUrl(artwork.url, size) : artwork.url;
+    return `<img src="${escapeHtml(url)}" alt="" class="artwork-sm">`;
   }
   return `<div class="artwork-sm hero-artwork-placeholder">${iconOnly('disc')}</div>`;
 }
@@ -49,9 +53,7 @@ function applyPlayButtons(container, playlists, busyIds) {
     btn.classList.toggle('busy', busyIds.has(id));
     btn.disabled = playlist.trackIds.length === 0 || busyIds.has(id);
     btn.setAttribute('aria-label', `「${playlist.name}」をシャッフルで再生`);
-    btn.innerHTML = btn.classList.contains('last-play-btn')
-      ? `${iconOnly('play')}<span>再生</span>`
-      : iconOnly('play');
+    btn.innerHTML = `${iconOnly('play')}<span>再生</span>`;
   });
 }
 
@@ -110,7 +112,7 @@ export function renderPlaylistList(container, playlists, actions, state = {}) {
     slot.innerHTML = `
       <div class="last-played">
         <button type="button" class="last-played-open" data-id="${escapeHtml(m.id)}">
-          ${playlistArtworkHtml(m, m.artwork)}
+          ${playlistArtworkHtml(m, m.artwork, { size: 300 })}
           <div class="item-main">
             <div class="last-played-label">前回のプレイリスト</div>
             ${marqueeHtml(m.name)}
@@ -140,7 +142,7 @@ export function renderPlaylistList(container, playlists, actions, state = {}) {
                 <div class="item-sub">${m.trackIds.length}曲</div>
               </div>
             </button>
-            <button type="button" class="play-btn row-play-btn" data-id="${escapeHtml(m.id)}"></button>
+            <button type="button" class="play-btn pill-play-btn row-play-btn" data-id="${escapeHtml(m.id)}"></button>
           </li>
         `).join('');
     // プレイリスト名が1行に収まらないときは自動スクロールする

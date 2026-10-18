@@ -151,16 +151,6 @@ function renderMiniPlayerBar() {
     {
       onTogglePlayPause: () => currentPlayer.togglePlayPause(),
       onNext: () => currentPlayer.next(),
-      onTap: () => {
-        if (playbackContext.type === 'playlist') {
-          activeTab = 'playlist';
-          playlistView = { screen: 'detail', playlistId: playbackContext.playlistId };
-          showPlaylistDetail(playlistView.playlistId);
-        } else {
-          activeTab = 'search';
-        }
-        applyTabVisibility();
-      },
     }
   );
 }

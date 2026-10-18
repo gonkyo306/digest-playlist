@@ -131,3 +131,35 @@ test('前回のプレイリストが削除された・曲が0件になった場�
   assert.equal(await page.locator('.last-played').count(), 0);
   await context.close();
 });
+
+test('行の再生ボタンは、前回のプレイリストのカードと同じ「再生」ラベル付きのピル型で、カードのジャケットは高解像度', async () => {
+  // 実際のiTunesの画像URLと同じく、解像度指定（100x100bb）を含むURLにする
+  const tracks = [0, 1, 2, 3].map((i) => ({ ...fakeTrack(i), artworkUrl100: `http://localhost/__art/${i}/100x100bb.jpg` }));
+  const { page, context } = await openApp(browser, origin, { playlists: LISTS, tracks });
+  assert.match(await rowBtn(page, '通勤用').textContent(), /再生/);
+  assert.equal(await page.locator('.row-play-btn.pill-play-btn').count(), 3);
+  await rowBtn(page, '通勤用').click();
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
+  await page.reload();
+  await page.waitForSelector('.last-played');
+  const rowStyle = await rowBtn(page, '通勤用').evaluate((e) => { const c = getComputedStyle(e); return [c.backgroundColor, c.color, c.borderRadius]; });
+  const cardStyle = await page.locator('.last-play-btn').evaluate((e) => { const c = getComputedStyle(e); return [c.backgroundColor, c.color, c.borderRadius]; });
+  assert.deepEqual(rowStyle, cardStyle, '見た目が同じ');
+  assert.match(await page.getAttribute('.last-played img.artwork-sm', 'src'), /300x300/, '前回のプレイリストのジャケットは、300pxの画像を使う');
+  await context.close();
+});
+
+test('ミニプレイヤーの曲名・ジャケットの部分をタップしても、詳細画面へは遷移しない', async () => {
+  const { page, context } = await openApp(browser, origin, { playlists: LISTS });
+  await page.locator('.playlist-open', { hasText: '夜のドライブ' }).click();
+  await page.waitForSelector('#play-start-btn');
+  await page.click('#play-start-btn');
+  await page.waitForFunction(() => document.querySelector('.mini-playpause')?.getAttribute('aria-label') === '一時停止');
+  await page.click('#back-btn'); // 一覧へ戻る
+  await page.waitForSelector('#playlist-list');
+  await page.click('.mini-player-info');
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('#playlist-list').count(), 1, '一覧画面のまま');
+  assert.equal(await page.locator('#play-start-btn:visible').count(), 0);
+  await context.close();
+});
